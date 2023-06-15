@@ -31,10 +31,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -46,7 +45,6 @@ import (
 
 	archiverspb "go.temporal.io/server/api/archiver/v1"
 	"go.temporal.io/server/common/archiver"
-	"go.temporal.io/server/common/archiver/s3store/mocks"
 	"go.temporal.io/server/common/codec"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/metrics"
@@ -59,7 +57,7 @@ import (
 type visibilityArchiverSuite struct {
 	*require.Assertions
 	suite.Suite
-	s3cli *mocks.MockS3API
+	s3cli *Mocks3Client
 
 	container         *archiver.VisibilityBootstrapContainer
 	visibilityRecords []*archiverspb.VisibilityRecord
@@ -99,8 +97,8 @@ func (s *visibilityArchiverSuite) TestValidateURI() {
 		},
 	}
 
-	s.s3cli.EXPECT().HeadBucketWithContext(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *s3.HeadBucketInput, options ...request.Option) (*s3.HeadBucketOutput, error) {
+	s.s3cli.EXPECT().HeadBucket(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, input *s3.HeadBucketInput, options ...request.Option) (*s3.HeadBucketOutput, error) {
 			if *input.Bucket != s.testArchivalURI.Hostname() {
 				return nil, awserr.New("NotFound", "", nil)
 			}
@@ -146,7 +144,7 @@ func (s *visibilityArchiverSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.controller = gomock.NewController(s.T())
 
-	s.s3cli = mocks.NewMockS3API(s.controller)
+	s.s3cli = NewMocks3Client(s.controller)
 	setupFsEmulation(s.s3cli)
 	s.setupVisibilityDirectory()
 }
