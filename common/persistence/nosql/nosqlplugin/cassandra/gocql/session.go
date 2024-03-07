@@ -32,6 +32,8 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
+
+	"github.com/DataDog/dd-source/domains/cassandra/libs/go/cqldriver"
 	"go.temporal.io/server/common"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/log/tag"
@@ -53,8 +55,7 @@ type (
 	session struct {
 		status               int32
 		newClusterConfigFunc func() (*gocql.ClusterConfig, error)
-		createSessionFunc    func(func() (*gocql.ClusterConfig, error)) (GocqlSession, error)
-		atomic.Value         // GocqlSession
+		atomic.Value         // *cqldriver.DDSession
 		logger               log.Logger
 
 		sync.Mutex
@@ -113,7 +114,7 @@ func (s *session) refresh() {
 	}
 
 	s.sessionInitTime = time.Now().UTC()
-	oldSession := s.Value.Load().(GocqlSession)
+	oldSession := s.Value.Load().(*cqldriver.DDSession)
 	s.Value.Store(newSession)
 	go oldSession.Close()
 	s.logger.Warn("gocql wrapper: successfully refreshed gocql session")
@@ -122,25 +123,20 @@ func (s *session) refresh() {
 func initSession(
 	logger log.Logger,
 	newClusterConfigFunc func() (*gocql.ClusterConfig, error),
-	metricsHandler metrics.Handler,
-) (*gocql.Session, error) {
-	cluster, err := newClusterConfigFunc()
-	if err != nil {
-		return nil, err
+) (*cqldriver.DDSession, error) {
+	ctx := context.Background()
+	builder := func(_ctx context.Context) (*gocql.ClusterConfig, error) {
+		return newClusterConfigFunc()
 	}
-
-	start := time.Now()
-	defer func() {
-		metrics.CassandraInitSessionLatency.With(metricsHandler).Record(time.Since(start))
-	}()
-	return createSessionFunc(newClusterConfigFunc)
+	return cqldriver.CreateDDSession(ctx,
+		cqldriver.WithClusterConfigBuilder(builder))
 }
 
 func (s *session) Query(
 	stmt string,
 	values ...interface{},
 ) Query {
-	q := s.Value.Load().(GocqlSession).Query(stmt, values...)
+	q := s.Value.Load().(*cqldriver.DDSession).Query(stmt, values...)
 	if q == nil {
 		return nil
 	}
@@ -154,7 +150,7 @@ func (s *session) Query(
 func (s *session) NewBatch(
 	batchType BatchType,
 ) Batch {
-	b := s.Value.Load().(GocqlSession).NewBatch(mustConvertBatchType(batchType))
+	b := s.Value.Load().(*cqldriver.DDSession).NewBatch(mustConvertBatchType(batchType))
 	if b == nil {
 		return nil
 	}
@@ -169,7 +165,7 @@ func (s *session) ExecuteBatch(
 ) (retError error) {
 	defer func() { s.handleError(retError) }()
 
-	return s.Value.Load().(GocqlSession).ExecuteBatch(b.(*batch).gocqlBatch)
+	return s.Value.Load().(*cqldriver.DDSession).ExecuteBatch(b.(*batch).gocqlBatch)
 }
 
 func (s *session) MapExecuteBatchCAS(
@@ -178,7 +174,7 @@ func (s *session) MapExecuteBatchCAS(
 ) (_ bool, _ Iter, retError error) {
 	defer func() { s.handleError(retError) }()
 
-	applied, iter, err := s.Value.Load().(GocqlSession).MapExecuteBatchCAS(b.(*batch).gocqlBatch, previous)
+	applied, iter, err := s.Value.Load().(*cqldriver.DDSession).MapExecuteBatchCAS(b.(*batch).gocqlBatch, previous)
 	return applied, iter, err
 }
 
@@ -187,7 +183,7 @@ func (s *session) AwaitSchemaAgreement(
 ) (retError error) {
 	defer func() { s.handleError(retError) }()
 
-	return s.Value.Load().(GocqlSession).AwaitSchemaAgreement(ctx)
+	return s.Value.Load().(*cqldriver.DDSession).AwaitSchemaAgreement(ctx)
 }
 
 func (s *session) Close() {
@@ -198,7 +194,7 @@ func (s *session) Close() {
 	) {
 		return
 	}
-	s.Value.Load().(GocqlSession).Close()
+	s.Value.Load().(*cqldriver.DDSession).Close()
 }
 
 func (s *session) handleError(
