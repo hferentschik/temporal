@@ -620,8 +620,8 @@ github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.48.1/go.mod h1:Vc+snp
 github.com/DataDog/datadog-go v4.4.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/DataDog/datadog-go/v5 v5.5.0 h1:G5KHeB8pWBNXT4Jtw0zAkhdxEAWSpWH00geHI6LDrKU=
 github.com/DataDog/datadog-go/v5 v5.5.0/go.mod h1:K9kcYBlxkcPP8tvvjZZKs/m1edNAUFzBbdpTUKfCsuw=
-github.com/DataDog/dd-source v0.0.0-20240308131425-aa18a9120571 h1:yVfsYDdh+T+r7dysUd1GI294xeCvoTMymycbmrrbmLQ=
-github.com/DataDog/dd-source v0.0.0-20240308131425-aa18a9120571/go.mod h1:uPmHUBDuq0F0KD190l2H5gXsaMHvUIv3n3ZJUH+XNHE=
+github.com/DataDog/dd-source v0.0.0-20240308154613-c0afca4e4dc1 h1:3mAzQWd6NP/BibOJVR4MmFiCNzKmmUMrZxGTn4c5Iw0=
+github.com/DataDog/dd-source v0.0.0-20240308154613-c0afca4e4dc1/go.mod h1:uPmHUBDuq0F0KD190l2H5gXsaMHvUIv3n3ZJUH+XNHE=
 github.com/DataDog/go-libddwaf/v2 v2.3.1 h1:bujaT5+KnLDFQqVA5ilvVvW+evUSHow9FrTHRgUwN4A=
 github.com/DataDog/go-libddwaf/v2 v2.3.1/go.mod h1:gsCdoijYQfj8ce/T2bEDNPZFIYnmHluAgVDpuQOWMZE=
 github.com/DataDog/go-service-authn v1.6.3 h1:zkui0z4/aMgHJk2x9qrSYRfhd95V47GL/sfSJF4sTDg=

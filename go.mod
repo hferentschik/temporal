@@ -6,7 +6,7 @@ toolchain go1.22.0
 
 require (
 	cloud.google.com/go/storage v1.30.1
-	github.com/DataDog/dd-source v0.0.0-20240308131425-aa18a9120571
+	github.com/DataDog/dd-source v0.0.0-20240308154613-c0afca4e4dc1
 	github.com/aws/aws-sdk-go v1.45.28
 	github.com/blang/semver/v4 v4.0.0
 	github.com/brianvoe/gofakeit/v6 v6.24.0
