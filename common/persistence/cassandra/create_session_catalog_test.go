@@ -39,58 +39,55 @@ func customCreateSession(cluster *gocql.ClusterConfig) (commongocql.GocqlSession
 }
 
 func TestCreateSessionCatalog(t *testing.T) {
-	assert := assert.New(t)
-	require := require.New(t)
-
 	cluster := gocql.NewCluster("this-is-a-test.this-host-is-not-defined.this-domain-does-not-exist")
 
 	createSession, err := getCreateSessionFunc("")
-	assert.NoError(err)
-	require.NotNil(createSession,
+	assert.NoError(t, err)
+	require.NotNil(t, createSession,
 		"default create session func is declared")
 	session, err := createSession(cluster)
-	assert.Nil(session)
-	require.NotNil(err)
-	assert.Contains(err.Error(), "gocql:",
+	assert.Nil(t, session)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "gocql:",
 		"default create session func is using upstream implementation")
 
 	createSession, err = getCreateSessionFunc("custom")
-	require.NotNil(err)
-	assert.Contains(err.Error(), "custom",
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "custom",
 		"custom create session func not defined yet")
-	assert.Nil(createSession)
+	assert.Nil(t, createSession)
 
 	RegisterCreateSessionFunc("custom", customCreateSession)
 
 	createSession, err = getCreateSessionFunc("custom")
-	assert.NoError(err)
-	require.NotNil(createSession,
+	assert.NoError(t, err)
+	require.NotNil(t, createSession,
 		"custom create session is defined")
 	session, err = createSession(cluster)
-	assert.Nil(session)
-	require.NotNil(err)
-	assert.Equal("not implemented, this is a test", err.Error(),
+	assert.Nil(t, session)
+	require.NotNil(t, err)
+	assert.Equal(t, "not implemented, this is a test", err.Error(),
 		"custom create session func is using custom implementation")
 
 	createSession, err = getCreateSessionFunc("")
-	assert.NoError(err)
-	require.NotNil(commongocql.CreateSession, createSession,
+	assert.NoError(t, err)
+	require.NotNil(t, commongocql.CreateSession, createSession,
 		"default create session func is still declaared")
 	session, err = createSession(cluster)
-	assert.Nil(session)
-	require.NotNil(err)
-	assert.Contains(err.Error(), "gocql:",
+	assert.Nil(t, session)
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "gocql:",
 		"default create session func is still using upstream implementation")
 
 	RegisterCreateSessionFunc("", customCreateSession)
 
 	createSession, err = getCreateSessionFunc("")
-	assert.NoError(err)
-	require.NotNil(createSession,
+	assert.NoError(t, err)
+	require.NotNil(t, createSession,
 		"custom create session is still defined")
 	session, err = createSession(cluster)
-	assert.Nil(session)
-	require.NotNil(err)
-	assert.Equal("not implemented, this is a test", err.Error(),
+	assert.Nil(t, session)
+	require.NotNil(t, err)
+	assert.Equal(t, "not implemented, this is a test", err.Error(),
 		"custom create session func is still using custom implementation")
 }
