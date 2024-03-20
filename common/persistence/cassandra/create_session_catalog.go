@@ -45,6 +45,21 @@ var createSessionCatalogData map[string]func(*gocql.ClusterConfig) (commongocql.
 // variable so it can, technically, be subject to race conditions.
 var createSessionCatalogMutex sync.RWMutex
 
+// this error never bubbles up, it is fatal, only used for logging
+type errorCreateSessionFuncNotRegistered struct {
+	name string
+}
+
+var _ error = &errorCreateSessionFuncNotRegistered{}
+
+func newErrorCreateSessionFuncNoRegistered(name string) *errorCreateSessionFuncNotRegistered {
+	return &errorCreateSessionFuncNotRegistered{name: name}
+}
+
+func (e *errorCreateSessionFuncNotRegistered) Error() string {
+	return fmt.Sprintf("entry \"%s\" is not defined in create session func catalog", e.name)
+}
+
 func init() {
 	createSessionCatalogData = make(map[string]func(*gocql.ClusterConfig) (commongocql.GocqlSession, error))
 	RegisterCreateSessionFunc("", commongocql.CreateSession)
@@ -67,7 +82,7 @@ func getCreateSessionFunc(name string) (func(*gocql.ClusterConfig) (commongocql.
 	callback, ok := createSessionCatalogData[name]
 	if callback == nil || !ok {
 		// If anything is nil, not declared, not found -> fail early.
-		return nil, fmt.Errorf("entry \"%s\" is not defined in create session func catalog", name)
+		return nil, newErrorCreateSessionFuncNoRegistered(name)
 	}
 	return callback, nil
 }
