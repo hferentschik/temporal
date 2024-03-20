@@ -1,6 +1,8 @@
 package cassandra
 
 import (
+	"fmt"
+
 	"github.com/gocql/gocql"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
@@ -44,11 +46,17 @@ func CheckCompatibleVersion(
 	logger log.Logger,
 ) error {
 
+	createSession, err := getCreateSessionFunc(cfg.CreateSessionFunc)
+	if err != nil {
+		return fmt.Errorf("unable to get create session func: %v", err)
+	}
+
 	session, err := commongocql.NewSession(
 		func() (*gocql.ClusterConfig, error) {
 			return commongocql.NewCassandraCluster(cfg, r)
 		},
-		logger,
+		createSession,
+		log.NewNoopLogger(),
 		metrics.NoopMetricsHandler,
 	)
 	if err != nil {
