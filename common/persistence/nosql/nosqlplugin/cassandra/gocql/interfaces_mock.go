@@ -32,6 +32,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	gocql "github.com/gocql/gocql"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -145,6 +146,118 @@ func (mr *MockSessionMockRecorder) Query(arg0 interface{}, arg1 ...interface{}) 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockSession)(nil).Query), varargs...)
+}
+
+// MockGocqlSession is a mock of GocqlSession interface.
+type MockGocqlSession struct {
+	ctrl     *gomock.Controller
+	recorder *MockGocqlSessionMockRecorder
+}
+
+// MockGocqlSessionMockRecorder is the mock recorder for MockGocqlSession.
+type MockGocqlSessionMockRecorder struct {
+	mock *MockGocqlSession
+}
+
+// NewMockGocqlSession creates a new mock instance.
+func NewMockGocqlSession(ctrl *gomock.Controller) *MockGocqlSession {
+	mock := &MockGocqlSession{ctrl: ctrl}
+	mock.recorder = &MockGocqlSessionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockGocqlSession) EXPECT() *MockGocqlSessionMockRecorder {
+	return m.recorder
+}
+
+// AwaitSchemaAgreement mocks base method.
+func (m *MockGocqlSession) AwaitSchemaAgreement(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AwaitSchemaAgreement", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AwaitSchemaAgreement indicates an expected call of AwaitSchemaAgreement.
+func (mr *MockGocqlSessionMockRecorder) AwaitSchemaAgreement(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitSchemaAgreement", reflect.TypeOf((*MockGocqlSession)(nil).AwaitSchemaAgreement), ctx)
+}
+
+// Close mocks base method.
+func (m *MockGocqlSession) Close() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Close")
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockGocqlSessionMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockGocqlSession)(nil).Close))
+}
+
+// ExecuteBatch mocks base method.
+func (m *MockGocqlSession) ExecuteBatch(batch *gocql.Batch) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteBatch", batch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExecuteBatch indicates an expected call of ExecuteBatch.
+func (mr *MockGocqlSessionMockRecorder) ExecuteBatch(batch interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteBatch", reflect.TypeOf((*MockGocqlSession)(nil).ExecuteBatch), batch)
+}
+
+// MapExecuteBatchCAS mocks base method.
+func (m *MockGocqlSession) MapExecuteBatchCAS(batch *gocql.Batch, dest map[string]interface{}) (bool, *gocql.Iter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MapExecuteBatchCAS", batch, dest)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(*gocql.Iter)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// MapExecuteBatchCAS indicates an expected call of MapExecuteBatchCAS.
+func (mr *MockGocqlSessionMockRecorder) MapExecuteBatchCAS(batch, dest interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MapExecuteBatchCAS", reflect.TypeOf((*MockGocqlSession)(nil).MapExecuteBatchCAS), batch, dest)
+}
+
+// NewBatch mocks base method.
+func (m *MockGocqlSession) NewBatch(typ gocql.BatchType) *gocql.Batch {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewBatch", typ)
+	ret0, _ := ret[0].(*gocql.Batch)
+	return ret0
+}
+
+// NewBatch indicates an expected call of NewBatch.
+func (mr *MockGocqlSessionMockRecorder) NewBatch(typ interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBatch", reflect.TypeOf((*MockGocqlSession)(nil).NewBatch), typ)
+}
+
+// Query mocks base method.
+func (m *MockGocqlSession) Query(stmt string, values ...interface{}) *gocql.Query {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{stmt}
+	for _, a := range values {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Query", varargs...)
+	ret0, _ := ret[0].(*gocql.Query)
+	return ret0
+}
+
+// Query indicates an expected call of Query.
+func (mr *MockGocqlSessionMockRecorder) Query(stmt interface{}, values ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{stmt}, values...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockGocqlSession)(nil).Query), varargs...)
 }
 
 // MockQuery is a mock of Query interface.
