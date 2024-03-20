@@ -22,6 +22,23 @@ type (
 		Close()
 	}
 
+	// GocqlSession is an interface compatible with the concrete type *gocql.Session.
+	//
+	// It only declares the functions which are actually used in Temporal,
+	// so that when declaring a compatible type, only what is strictly required
+	// needs to be implemented.
+	//
+	// This is usefull when using the `CreateSessionFunc` parameter of the
+	// cassandra config, in order to override the default behavior.
+	GocqlSession interface {
+		Query(stmt string, values ...interface{}) *gocql.Query
+		NewBatch(typ gocql.BatchType) *gocql.Batch
+		ExecuteBatch(batch *gocql.Batch) error
+		MapExecuteBatchCAS(batch *gocql.Batch, dest map[string]interface{}) (applied bool, iter *gocql.Iter, err error)
+		AwaitSchemaAgreement(ctx context.Context) error
+		Close()
+	}
+
 	// Query is the interface for query object.
 	Query interface {
 		Exec() error
@@ -60,3 +77,5 @@ type (
 	// SpeculativeExecutionPolicy is a gocql SpeculativeExecutionPolicy
 	SpeculativeExecutionPolicy gocql.SpeculativeExecutionPolicy
 )
+
+var _ GocqlSession = &gocql.Session{}
