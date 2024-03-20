@@ -156,6 +156,7 @@ func (s *TestCluster) CreateSession(
 					resolver.NewNoopResolver(),
 				)
 			},
+			commongocql.CreateSession,
 			log.NewNoopLogger(),
 			metrics.NoopMetricsHandler,
 		)
