@@ -54,7 +54,8 @@ type (
 	session struct {
 		status               int32
 		newClusterConfigFunc func() (*gocql.ClusterConfig, error)
-		atomic.Value         // *gocql.Session
+		createSessionFunc    func(*gocql.ClusterConfig) (GocqlSession, error)
+		atomic.Value         // GocqlSession
 		logger               log.Logger
 
 		sync.Mutex
@@ -65,11 +66,12 @@ type (
 
 func NewSession(
 	newClusterConfigFunc func() (*gocql.ClusterConfig, error),
+	createSessionFunc func(*gocql.ClusterConfig) (GocqlSession, error),
 	logger log.Logger,
 	metricsHandler metrics.Handler,
 ) (*session, error) {
 
-	gocqlSession, err := initSession(newClusterConfigFunc, metricsHandler)
+	gocqlSession, err := initSession(newClusterConfigFunc, createSessionFunc, metricsHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +79,7 @@ func NewSession(
 	session := &session{
 		status:               common.DaemonStatusStarted,
 		newClusterConfigFunc: newClusterConfigFunc,
+		createSessionFunc:    createSessionFunc,
 		logger:               logger,
 		metricsHandler:       metricsHandler,
 
@@ -102,7 +105,7 @@ func (s *session) refresh() {
 		return
 	}
 
-	newSession, err := initSession(s.newClusterConfigFunc, s.metricsHandler)
+	newSession, err := initSession(s.newClusterConfigFunc, s.createSessionFunc, s.metricsHandler)
 	if err != nil {
 		s.logger.Error("gocql wrapper: unable to refresh gocql session", tag.Error(err))
 		handler := s.metricsHandler.WithTags(metrics.FailureTag(refreshErrorTagValue))
@@ -111,7 +114,7 @@ func (s *session) refresh() {
 	}
 
 	s.sessionInitTime = time.Now().UTC()
-	oldSession := s.Value.Load().(*gocql.Session)
+	oldSession := s.Value.Load().(GocqlSession)
 	s.Value.Store(newSession)
 	go oldSession.Close()
 	s.logger.Warn("gocql wrapper: successfully refreshed gocql session")
@@ -119,8 +122,9 @@ func (s *session) refresh() {
 
 func initSession(
 	newClusterConfigFunc func() (*gocql.ClusterConfig, error),
+	createSessionFunc func(*gocql.ClusterConfig) (GocqlSession, error),
 	metricsHandler metrics.Handler,
-) (*gocql.Session, error) {
+) (GocqlSession, error) {
 	cluster, err := newClusterConfigFunc()
 	if err != nil {
 		return nil, err
@@ -129,14 +133,14 @@ func initSession(
 	defer func() {
 		metricsHandler.Timer(metrics.CassandraInitSessionLatency.Name()).Record(time.Since(start))
 	}()
-	return cluster.CreateSession()
+	return createSessionFunc(cluster)
 }
 
 func (s *session) Query(
 	stmt string,
 	values ...interface{},
 ) Query {
-	q := s.Value.Load().(*gocql.Session).Query(stmt, values...)
+	q := s.Value.Load().(GocqlSession).Query(stmt, values...)
 	if q == nil {
 		return nil
 	}
@@ -150,7 +154,7 @@ func (s *session) Query(
 func (s *session) NewBatch(
 	batchType BatchType,
 ) Batch {
-	b := s.Value.Load().(*gocql.Session).NewBatch(mustConvertBatchType(batchType))
+	b := s.Value.Load().(GocqlSession).NewBatch(mustConvertBatchType(batchType))
 	if b == nil {
 		return nil
 	}
@@ -165,7 +169,7 @@ func (s *session) ExecuteBatch(
 ) (retError error) {
 	defer func() { s.handleError(retError) }()
 
-	return s.Value.Load().(*gocql.Session).ExecuteBatch(b.(*batch).gocqlBatch)
+	return s.Value.Load().(GocqlSession).ExecuteBatch(b.(*batch).gocqlBatch)
 }
 
 func (s *session) MapExecuteBatchCAS(
@@ -174,7 +178,7 @@ func (s *session) MapExecuteBatchCAS(
 ) (_ bool, _ Iter, retError error) {
 	defer func() { s.handleError(retError) }()
 
-	applied, iter, err := s.Value.Load().(*gocql.Session).MapExecuteBatchCAS(b.(*batch).gocqlBatch, previous)
+	applied, iter, err := s.Value.Load().(GocqlSession).MapExecuteBatchCAS(b.(*batch).gocqlBatch, previous)
 	return applied, iter, err
 }
 
@@ -183,7 +187,7 @@ func (s *session) AwaitSchemaAgreement(
 ) (retError error) {
 	defer func() { s.handleError(retError) }()
 
-	return s.Value.Load().(*gocql.Session).AwaitSchemaAgreement(ctx)
+	return s.Value.Load().(GocqlSession).AwaitSchemaAgreement(ctx)
 }
 
 func (s *session) Close() {
@@ -194,7 +198,7 @@ func (s *session) Close() {
 	) {
 		return
 	}
-	s.Value.Load().(*gocql.Session).Close()
+	s.Value.Load().(GocqlSession).Close()
 }
 
 func (s *session) handleError(
