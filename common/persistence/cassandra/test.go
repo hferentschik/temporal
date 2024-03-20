@@ -153,6 +153,7 @@ func (s *TestCluster) CreateSession(
 				resolver.NewNoopResolver(),
 			)
 		},
+		commongocql.CreateSession,
 		log.NewNoopLogger(),
 	)
 	if err != nil {

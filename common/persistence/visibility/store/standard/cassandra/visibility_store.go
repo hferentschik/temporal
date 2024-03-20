@@ -155,6 +155,7 @@ func NewVisibilityStore(
 		func() (*gocql.ClusterConfig, error) {
 			return commongocql.NewCassandraCluster(cfg, r)
 		},
+		commongocql.CreateSession,
 		logger,
 	)
 	if err != nil {
