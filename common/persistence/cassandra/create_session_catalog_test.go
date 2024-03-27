@@ -25,7 +25,6 @@
 package cassandra
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/gocql/gocql"
@@ -34,8 +33,14 @@ import (
 	commongocql "go.temporal.io/server/common/persistence/nosql/nosqlplugin/cassandra/gocql"
 )
 
+type testErrNotImplemented struct{}
+
+func (e testErrNotImplemented) Error() string {
+	return "not implemented, this is a test"
+}
+
 func testCustomCreateSession(_clusterFunc func() (*gocql.ClusterConfig, error)) (commongocql.GocqlSession, error) {
-	return nil, fmt.Errorf("not implemented, this is a test")
+	return nil, testErrNotImplemented{}
 }
 
 func testClusterFunc() (*gocql.ClusterConfig, error) {
