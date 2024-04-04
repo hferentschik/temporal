@@ -106,17 +106,23 @@ func (f *clientFactory) NewClient(options sdkclient.Options) sdkclient.Client {
 
 func (f *clientFactory) GetSystemClient() sdkclient.Client {
 	f.once.Do(func() {
-		err := backoff.ThrottleRetry(func() error {
-			sdkClient, err := sdkclient.Dial(f.options(sdkclient.Options{
-				Namespace: primitives.SystemLocalNamespace,
-			}))
-			if err != nil {
-				f.logger.Warn("error creating sdk client", tag.Error(err))
-				return err
-			}
-			f.systemSdkClient = sdkClient
-			return nil
-		}, common.CreateSdkClientFactoryRetryPolicy(), common.IsContextDeadlineExceededErr)
+		err := backoff.ThrottleRetry(
+			func() error {
+				sdkClient, err := sdkclient.Dial(f.options(sdkclient.Options{
+					Namespace: primitives.SystemLocalNamespace,
+				}))
+				if err != nil {
+					f.logger.Warn("error creating sdk client", tag.Error(err))
+					return err
+				}
+				f.systemSdkClient = sdkClient
+				return nil
+			},
+			common.CreateSdkClientFactoryRetryPolicy(),
+			func(err error) bool {
+				return common.IsContextDeadlineExceededErr(err) || common.IsServiceHandlerRetryableError(err)
+			},
+		)
 		if err != nil {
 			f.logger.Fatal("error creating sdk client", tag.Error(err))
 		}
