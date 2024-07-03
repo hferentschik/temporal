@@ -106,6 +106,7 @@ func SetUpCassandraDatabase(cfg *config.Cassandra, logger log.Logger) {
 		func() (*gocql.ClusterConfig, error) {
 			return commongocql.NewCassandraCluster(adminCfg, resolver.NewNoopResolver())
 		},
+		nil,
 		logger,
 		metrics.NoopMetricsHandler,
 	)
@@ -135,6 +136,7 @@ func ApplySchemaUpdate(cfg *config.Cassandra, schemaFile string, logger log.Logg
 		func() (*gocql.ClusterConfig, error) {
 			return commongocql.NewCassandraCluster(*cfg, resolver.NewNoopResolver())
 		},
+		nil,
 		logger,
 		metrics.NoopMetricsHandler,
 	)
@@ -170,6 +172,7 @@ func TearDownCassandraKeyspace(cfg *config.Cassandra) {
 		func() (*gocql.ClusterConfig, error) {
 			return commongocql.NewCassandraCluster(adminCfg, resolver.NewNoopResolver())
 		},
+		nil,
 		log.NewNoopLogger(),
 		metrics.NoopMetricsHandler,
 	)
