@@ -24,6 +24,8 @@
 
 package quotas
 
+import "fmt"
+
 type (
 	// MemberCounter returns the total number of instances there are for a given service.
 	MemberCounter interface {
@@ -51,6 +53,9 @@ type (
 // limit is used if and only if it is configured to a value greater than zero and the number of instances that
 // the memberCounter reports is greater than zero. Otherwise, the per-instance limit is used.
 func getQuota(memberCounter MemberCounter, instanceLimit, clusterLimit int) float64 {
+	fmt.Printf("[XXXXX] instanceLimit: %d\n", instanceLimit)
+	fmt.Printf("[XXXXX] clusterLimit: %d\n", clusterLimit)
+
 	if clusterLimit > 0 && memberCounter != nil {
 		if clusterSize := memberCounter.MemberCount(); clusterSize > 0 {
 			return float64(clusterLimit) / float64(clusterSize)

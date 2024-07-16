@@ -305,6 +305,9 @@ func RateLimitInterceptorProvider(
 	serviceConfig *Config,
 	frontendServiceResolver membership.ServiceResolver,
 ) *interceptor.RateLimitInterceptor {
+	fmt.Printf("[XXXXX] PerInstanceQuota: %d\n", serviceConfig.RPS())
+	fmt.Printf("[XXXXX] GlobalQuota: %d\n", serviceConfig.GlobalRPS())
+
 	rateFn := quotas.ClusterAwareQuotaCalculator{
 		MemberCounter:    frontendServiceResolver,
 		PerInstanceQuota: serviceConfig.RPS,
