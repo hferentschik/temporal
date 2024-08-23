@@ -448,6 +448,7 @@ func (a *activities) GenerateReplicationTasks(ctx context.Context, request *gene
 		if err := a.generateWorkflowReplicationTask(ctx, rateLimiter, definition.NewWorkflowKey(request.NamespaceID, we.WorkflowId, we.RunId)); err != nil {
 			if !isNotFoundServiceError(err) {
 				a.logger.Error("force-replication failed to generate replication task", tag.WorkflowNamespaceID(request.NamespaceID), tag.WorkflowID(we.WorkflowId), tag.WorkflowRunID(we.RunId), tag.Error(err))
+			} else {
 				return err
 			}
 		}
