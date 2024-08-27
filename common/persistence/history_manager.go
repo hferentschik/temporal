@@ -743,6 +743,11 @@ func (m *executionManagerImpl) readRawHistoryBranchAndFilter(
 	ctx context.Context,
 	request *ReadHistoryBranchRequest,
 ) ([]*commonpb.DataBlob, []int64, []int64, *historyPagingToken, int, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Error("Recovered in readRawHistoryBranchAndFilter", tag.NewAnyTag("panic_arg", r))
+		}
+	}()
 
 	shardID := request.ShardID
 	branchToken := request.BranchToken
