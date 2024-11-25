@@ -1128,7 +1128,7 @@ func (m *executionManagerImpl) serializeToken(
 ) ([]byte, error) {
 	if pagingToken == nil {
 		m.logger.Error("nil pagingToken in serializeToken")
-		// throwing an application error because... TODO: write a better comment
+		// throwing a nonretryable in case this is being called from an activity 
 		return nil, temporal.NewNonRetryableApplicationError("nil pagingToken in serializeToken", "", nil)
 	}
 
