@@ -124,7 +124,7 @@ func initSession(
 	newClusterConfigFunc func() (*gocql.ClusterConfig, error),
 	metricsHandler metrics.Handler,
 	createSessionFunc func(func() (*gocql.ClusterConfig, error)) (GocqlSession, error),
-) (GocqlSession, error) {
+) (gcqlSession GocqlSession, retErr error) {
 	defer log.CapturePanic(logger, &retErr)
 	if createSessionFunc == nil {
 		createSessionFunc = CreateSession
@@ -132,9 +132,16 @@ func initSession(
 
 	start := time.Now()
 	defer func() {
-		metrics.CassandraInitSessionLatency.With(metricsHandler).Record(time.Since(start))
+		if retErr == nil {
+			metrics.CassandraInitSessionLatency.With(metricsHandler).Record(time.Since(start))
+		}
 	}()
-	return createSessionFunc(newClusterConfigFunc)
+	gcs, err := createSessionFunc(newClusterConfigFunc)
+	if err != nil {
+		log.CapturePanic(logger, &err)
+		return nil, err
+	}
+	return gcs, nil
 }
 
 func (s *session) Query(

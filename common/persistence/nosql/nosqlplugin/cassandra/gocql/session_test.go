@@ -74,9 +74,13 @@ func TestSessionEmitsMetricOnRefreshThrottle(t *testing.T) {
 }
 
 func TestPanicCapture(t *testing.T) {
-	_, err := initSession(log.NewNoopLogger(), func() (*gocql.ClusterConfig, error) {
-		return &gocql.ClusterConfig{Hosts: []string{"0.0.0.0"}}, nil
-	}, metrics.NoopMetricsHandler)
+	_, err := initSession(
+		log.NewNoopLogger(),
+		func() (*gocql.ClusterConfig, error) {
+			return &gocql.ClusterConfig{Hosts: []string{"0.0.0.0"}}, nil
+		},
+		metrics.NoopMetricsHandler,
+		CreateSession)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "panic:")
