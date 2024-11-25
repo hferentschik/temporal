@@ -67,7 +67,7 @@ func NewSession(
 	metricsHandler metrics.Handler,
 ) (*session, error) {
 
-	gocqlSession, err := initSession(logger, newClusterConfigFunc, metricsHandler)
+	gocqlSession, err := initSession(logger, newClusterConfigFunc, metricsHandler, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (s *session) refresh() {
 		return
 	}
 
-	newSession, err := initSession(s.logger, s.newClusterConfigFunc, s.metricsHandler)
+	newSession, err := initSession(s.logger, s.newClusterConfigFunc, s.metricsHandler, nil)
 	if err != nil {
 		s.logger.Error("gocql wrapper: unable to refresh gocql session", tag.Error(err))
 		handler := s.metricsHandler.WithTags(metrics.FailureTag(refreshErrorTagValue))
@@ -119,17 +119,25 @@ func initSession(
 	logger log.Logger,
 	newClusterConfigFunc func() (*gocql.ClusterConfig, error),
 	metricsHandler metrics.Handler,
-) (gs *gocql.Session, retErr error) {
+	createSessionFunc func(func() (*gocql.ClusterConfig, error)) (GocqlSession, error),
+) (gcqlSession GocqlSession, retErr error) {
 	defer log.CapturePanic(logger, &retErr)
-	cluster, err := newClusterConfigFunc()
-	if err != nil {
-		return nil, err
+	if createSessionFunc == nil {
+		createSessionFunc = CreateSession
 	}
+
 	start := time.Now()
 	defer func() {
-		metrics.CassandraInitSessionLatency.With(metricsHandler).Record(time.Since(start))
+		if retErr == nil {
+			metrics.CassandraInitSessionLatency.With(metricsHandler).Record(time.Since(start))
+		}
 	}()
-	return cluster.CreateSession()
+	gcs, err := createSessionFunc(newClusterConfigFunc)
+	if err != nil {
+		log.CapturePanic(logger, &err)
+		return nil, err
+	}
+	return gcs, nil
 }
 
 func (s *session) Query(
