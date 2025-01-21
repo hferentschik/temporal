@@ -52,20 +52,19 @@ var (
 	}
 )
 
-type plugin struct {
-	d driver.Driver
+type Plugin struct {
+	Driver driver.Driver
 }
 
-var _ sqlplugin.Plugin = (*plugin)(nil)
+var _ sqlplugin.Plugin = (*Plugin)(nil)
 
 func init() {
-	sql.RegisterPlugin(PluginName, &plugin{&driver.PQDriver{}})
-	sql.RegisterPlugin(PluginNamePGX, &plugin{&driver.PGXDriver{}})
-
+	sql.RegisterPlugin(PluginName, &Plugin{&driver.PQDriver{}})
+	sql.RegisterPlugin(PluginNamePGX, &Plugin{&driver.PGXDriver{}})
 }
 
 // CreateDB initialize the db object
-func (d *plugin) CreateDB(
+func (d *Plugin) CreateDB(
 	dbKind sqlplugin.DbKind,
 	cfg *config.SQL,
 	r resolver.ServiceResolver,
@@ -74,12 +73,12 @@ func (d *plugin) CreateDB(
 	if err != nil {
 		return nil, err
 	}
-	db := newDB(dbKind, cfg.DatabaseName, d.d, conn, nil)
+	db := newDB(dbKind, cfg.DatabaseName, d.Driver, conn, nil)
 	return db, nil
 }
 
 // CreateAdminDB initialize the adminDB object
-func (d *plugin) CreateAdminDB(
+func (d *Plugin) CreateAdminDB(
 	dbKind sqlplugin.DbKind,
 	cfg *config.SQL,
 	r resolver.ServiceResolver,
@@ -88,7 +87,7 @@ func (d *plugin) CreateAdminDB(
 	if err != nil {
 		return nil, err
 	}
-	db := newDB(dbKind, cfg.DatabaseName, d.d, conn, nil)
+	db := newDB(dbKind, cfg.DatabaseName, d.Driver, conn, nil)
 	return db, nil
 }
 
@@ -96,12 +95,12 @@ func (d *plugin) CreateAdminDB(
 // underlying SQL database. The returned object is to tied to a single
 // SQL database and the object can be used to perform CRUD operations on
 // the tables in the database
-func (d *plugin) createDBConnection(
+func (d *Plugin) createDBConnection(
 	cfg *config.SQL,
 	resolver resolver.ServiceResolver,
 ) (*sqlx.DB, error) {
 	if cfg.DatabaseName != "" {
-		postgresqlSession, err := session.NewSession(cfg, d.d, resolver)
+		postgresqlSession, err := session.NewSession(cfg, d.Driver, resolver)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +116,7 @@ func (d *plugin) createDBConnection(
 		cfg.DatabaseName = databaseName
 		if postgresqlSession, err := session.NewSession(
 			cfg,
-			d.d,
+			d.Driver,
 			resolver,
 		); err == nil {
 			return postgresqlSession.DB, nil
