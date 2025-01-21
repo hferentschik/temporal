@@ -38,20 +38,20 @@ const (
 	PluginNameV12PGX = "postgres12_pgx"
 )
 
-type pluginV12 struct {
-	plugin
+type PluginV12 struct {
+	Plugin
 }
 
-var _ sqlplugin.Plugin = (*pluginV12)(nil)
+var _ sqlplugin.Plugin = (*PluginV12)(nil)
 
 func init() {
-	sql.RegisterPlugin(PluginNameV12, &pluginV12{plugin{&driver.PQDriver{}}})
-	sql.RegisterPlugin(PluginNameV12PGX, &pluginV12{plugin{&driver.PGXDriver{}}})
+	sql.RegisterPlugin(PluginNameV12, &PluginV12{Plugin{&driver.PQDriver{}}})
+	sql.RegisterPlugin(PluginNameV12PGX, &PluginV12{Plugin{&driver.PGXDriver{}}})
 
 }
 
 // CreateDB initialize the db object
-func (d *pluginV12) CreateDB(
+func (d *PluginV12) CreateDB(
 	dbKind sqlplugin.DbKind,
 	cfg *config.SQL,
 	r resolver.ServiceResolver,
@@ -60,12 +60,12 @@ func (d *pluginV12) CreateDB(
 	if err != nil {
 		return nil, err
 	}
-	db := newDBV12(dbKind, cfg.DatabaseName, d.d, conn, nil)
+	db := newDBV12(dbKind, cfg.DatabaseName, d.Driver, conn, nil)
 	return db, nil
 }
 
 // CreateAdminDB initialize the adminDB object
-func (d *pluginV12) CreateAdminDB(
+func (d *PluginV12) CreateAdminDB(
 	dbKind sqlplugin.DbKind,
 	cfg *config.SQL,
 	r resolver.ServiceResolver,
@@ -74,6 +74,6 @@ func (d *pluginV12) CreateAdminDB(
 	if err != nil {
 		return nil, err
 	}
-	db := newDBV12(dbKind, cfg.DatabaseName, d.d, conn, nil)
+	db := newDBV12(dbKind, cfg.DatabaseName, d.Driver, conn, nil)
 	return db, nil
 }
