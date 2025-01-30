@@ -25,7 +25,6 @@
 package client
 
 import (
-	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -142,13 +141,13 @@ func (p *DefaultErrorGenerator) Generate() error {
 		var result error
 		for _, fm := range p.faultMetadata {
 			if roll < fm.threshold {
-				msg := fmt.Sprintf(
-					"FaultInjectionGenerator. rate %f, roll: %f, treshold: %f",
-					p.rate.Load(),
-					roll,
-					fm.threshold,
-				)
-				result = fm.errFactory(msg)
+				//msg := fmt.Sprintf(
+				//	"FaultInjectionGenerator. rate %f, roll: %f, treshold: %f",
+				//	p.rate.Load(),
+				//	roll,
+				//	fm.threshold,
+				//)
+				result = fm.errFactory("")
 				break
 			}
 		}

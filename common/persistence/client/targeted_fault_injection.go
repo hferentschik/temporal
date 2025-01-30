@@ -107,9 +107,9 @@ func newError(errName string, errRate float64) error {
 	case "DeadlineExceeded":
 		return fmt.Errorf("fault injection error (%f): %w", errRate, context.DeadlineExceeded)
 	case "ResourceExhausted":
-		return serviceerror.NewResourceExhausted(enumspb.RESOURCE_EXHAUSTED_CAUSE_SYSTEM_OVERLOADED, fmt.Sprintf("fault injection error (%f): serviceerror.ResourceExhausted", errRate))
+		return serviceerror.NewResourceExhausted(enumspb.RESOURCE_EXHAUSTED_CAUSE_SYSTEM_OVERLOADED, "Workflow is busy.")
 	case "Unavailable":
-		return serviceerror.NewUnavailable(fmt.Sprintf("fault injection error (%f): serviceerror.Unavailable", errRate))
+		return serviceerror.NewUnavailable("CreateWorkflowExecution operation failed")
 	default:
 		panic(fmt.Sprintf("unknown error type: %v", errName))
 	}
