@@ -439,7 +439,11 @@ func (params ServiceProviderParamsCommon) GetCommonServiceOptions(serviceName pr
 				return params.Authorizer
 			},
 			func() authorization.ClaimMapper {
-				return params.ClaimMapper
+				if serviceName == primitives.InternalFrontendService {
+					return params.InternalFrontendClaimMapper
+				} else {
+					return params.ClaimMapper
+				}
 			},
 			func() encryption.TLSConfigProvider {
 				return params.TlsConfigProvider
@@ -568,7 +572,7 @@ func genericFrontendServiceProvider(
 			case primitives.FrontendService:
 				return params.ClaimMapper
 			case primitives.InternalFrontendService:
-				return authorization.NewNoopClaimMapper()
+				return params.InternalFrontendClaimMapper
 			default:
 				panic("Unexpected frontend service name")
 			}
