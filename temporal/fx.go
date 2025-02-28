@@ -86,6 +86,9 @@ type (
 		logger                     log.Logger
 	}
 
+	// InternalFrontendClaimMapper allows having 2 dependencies of the same underlying type.
+	InternalFrontendClaimMapper authorization.ClaimMapper
+
 	serverOptionsProvider struct {
 		fx.Out
 		ServerOptions              *serverOptions
@@ -103,12 +106,13 @@ type (
 		CustomDataStoreFactory persistenceClient.AbstractDataStoreFactory
 		CustomVisibilityStore  visibility.VisibilityStoreFactory
 
-		SearchAttributesMapper     searchattribute.Mapper
-		CustomFrontendInterceptors []grpc.UnaryServerInterceptor
-		Authorizer                 authorization.Authorizer
-		ClaimMapper                authorization.ClaimMapper
-		AudienceGetter             authorization.JWTAudienceMapper
-		ServiceHosts               map[primitives.ServiceName]static.Hosts
+		SearchAttributesMapper      searchattribute.Mapper
+		CustomFrontendInterceptors  []grpc.UnaryServerInterceptor
+		Authorizer                  authorization.Authorizer
+		ClaimMapper                 authorization.ClaimMapper
+		InternalFrontendClaimMapper InternalFrontendClaimMapper
+		AudienceGetter              authorization.JWTAudienceMapper
+		ServiceHosts                map[primitives.ServiceName]static.Hosts
 
 		// below are things that could be over write by server options or may have default if not supplied by serverOptions.
 		Logger                log.Logger
@@ -262,6 +266,12 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		}
 	}
 
+	// InternalFrontendClaimMapper
+	internalFrontendClaimMapper := so.internalFrontendClaimMapper
+	if internalFrontendClaimMapper == nil {
+		internalFrontendClaimMapper = authorization.NewNoopClaimMapper()
+	}
+
 	return serverOptionsProvider{
 		ServerOptions:              so,
 		StopChan:                   stopChan,
@@ -279,11 +289,12 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		CustomDataStoreFactory: so.customDataStoreFactory,
 		CustomVisibilityStore:  so.customVisibilityStoreFactory,
 
-		SearchAttributesMapper:     so.searchAttributesMapper,
-		CustomFrontendInterceptors: so.customFrontendInterceptors,
-		Authorizer:                 so.authorizer,
-		ClaimMapper:                so.claimMapper,
-		AudienceGetter:             so.audienceGetter,
+		SearchAttributesMapper:      so.searchAttributesMapper,
+		CustomFrontendInterceptors:  so.customFrontendInterceptors,
+		Authorizer:                  so.authorizer,
+		ClaimMapper:                 so.claimMapper,
+		InternalFrontendClaimMapper: internalFrontendClaimMapper,
+		AudienceGetter:              so.audienceGetter,
 
 		Logger:                logger,
 		ClientFactoryProvider: clientFactoryProvider,
@@ -330,31 +341,33 @@ type (
 	ServiceProviderParamsCommon struct {
 		fx.In
 
-		Cfg                        *config.Config
-		ServiceNames               resource.ServiceNames
-		Logger                     log.Logger
-		NamespaceLogger            resource.NamespaceLogger
-		DynamicConfigClient        dynamicconfig.Client
-		MetricsHandler             metrics.Handler
-		EsClient                   esclient.Client
-		TlsConfigProvider          encryption.TLSConfigProvider
-		PersistenceConfig          config.Persistence
-		ClusterMetadata            *cluster.Config
-		ClientFactoryProvider      client.FactoryProvider
-		AudienceGetter             authorization.JWTAudienceMapper
-		PersistenceServiceResolver resolver.ServiceResolver
-		PersistenceFactoryProvider persistenceClient.FactoryProviderFn
-		SearchAttributesMapper     searchattribute.Mapper
-		CustomFrontendInterceptors []grpc.UnaryServerInterceptor
-		Authorizer                 authorization.Authorizer
-		ClaimMapper                authorization.ClaimMapper
-		DataStoreFactory           persistenceClient.AbstractDataStoreFactory
-		VisibilityStoreFactory     visibility.VisibilityStoreFactory
-		SpanExporters              []otelsdktrace.SpanExporter
-		InstanceID                 resource.InstanceID                     `optional:"true"`
-		StaticServiceHosts         map[primitives.ServiceName]static.Hosts `optional:"true"`
-		TaskCategoryRegistry       tasks.TaskCategoryRegistry
-		ChasmRegistry              *chasm.Registry
+		Cfg                         *config.Config
+		ServiceNames                resource.ServiceNames
+		Logger                      log.Logger
+		NamespaceLogger             resource.NamespaceLogger
+		DynamicConfigClient         dynamicconfig.Client
+		MetricsHandler              metrics.Handler
+		EsConfig                    *esclient.Config
+		EsClient                    esclient.Client
+		TLSConfigProvider           encryption.TLSConfigProvider
+		PersistenceConfig           config.Persistence
+		ClusterMetadata             *cluster.Config
+		ClientFactoryProvider       client.FactoryProvider
+		AudienceGetter              authorization.JWTAudienceMapper
+		PersistenceServiceResolver  resolver.ServiceResolver
+		PersistenceFactoryProvider  persistenceClient.FactoryProviderFn
+		SearchAttributesMapper      searchattribute.Mapper
+		CustomFrontendInterceptors  []grpc.UnaryServerInterceptor
+		Authorizer                  authorization.Authorizer
+		ClaimMapper                 authorization.ClaimMapper
+		InternalFrontendClaimMapper InternalFrontendClaimMapper
+		DataStoreFactory            persistenceClient.AbstractDataStoreFactory
+		VisibilityStoreFactory      visibility.VisibilityStoreFactory
+		SpanExporters               []otelsdktrace.SpanExporter
+		InstanceID                  resource.InstanceID                     `optional:"true"`
+		StaticServiceHosts          map[primitives.ServiceName]static.Hosts `optional:"true"`
+		TaskCategoryRegistry        tasks.TaskCategoryRegistry
+		ChasmRegistry               *chasm.Registry
 	}
 )
 
@@ -404,10 +417,13 @@ func (params ServiceProviderParamsCommon) GetCommonServiceOptions(serviceName pr
 				return params.Authorizer
 			},
 			func() authorization.ClaimMapper {
+				if serviceName == primitives.InternalFrontendService {
+					return params.InternalFrontendClaimMapper
+				}
 				return params.ClaimMapper
 			},
 			func() encryption.TLSConfigProvider {
-				return params.TlsConfigProvider
+				return params.TLSConfigProvider
 			},
 			func() dynamicconfig.Client {
 				return params.DynamicConfigClient
@@ -530,7 +546,7 @@ func genericFrontendServiceProvider(
 			case primitives.FrontendService:
 				return params.ClaimMapper
 			case primitives.InternalFrontendService:
-				return authorization.NewNoopClaimMapper()
+				return params.InternalFrontendClaimMapper
 			default:
 				panic("Unexpected frontend service name")
 			}
