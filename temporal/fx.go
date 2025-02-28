@@ -93,6 +93,9 @@ type (
 		logger                     log.Logger
 	}
 
+	// InternalFrontendClaimMapper allows having 2 dependencies of the same underlying type.
+	InternalFrontendClaimMapper authorization.ClaimMapper
+
 	serverOptionsProvider struct {
 		fx.Out
 		ServerOptions              *serverOptions
@@ -117,6 +120,7 @@ type (
 		AdditionalStreamInterceptors []grpc.StreamServerInterceptor
 		Authorizer                   authorization.Authorizer
 		ClaimMapper                  authorization.ClaimMapper
+		InternalFrontendClaimMapper  InternalFrontendClaimMapper
 		AudienceGetter               authorization.JWTAudienceMapper
 		TokenProvider                auth.TokenProvider
 		ServiceHosts                 map[primitives.ServiceName]static.Hosts
@@ -305,6 +309,12 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		return serverOptionsProvider{}, errors.New("WithTokenProvider is set but no remote-cluster TLS is configured: supply global.tls.remoteClusters in config, or pass a provider via WithTLSConfigProvider")
 	}
 
+	// InternalFrontendClaimMapper
+	internalFrontendClaimMapper := so.internalFrontendClaimMapper
+	if internalFrontendClaimMapper == nil {
+		internalFrontendClaimMapper = authorization.NewNoopClaimMapper()
+	}
+
 	return serverOptionsProvider{
 		ServerOptions:              so,
 		StopChan:                   stopChan,
@@ -329,6 +339,7 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		AdditionalStreamInterceptors: so.additionalStreamInterceptors,
 		Authorizer:                   so.authorizer,
 		ClaimMapper:                  so.claimMapper,
+		InternalFrontendClaimMapper:  internalFrontendClaimMapper,
 		AudienceGetter:               so.audienceGetter,
 		TokenProvider:                so.tokenProvider,
 
@@ -400,6 +411,7 @@ type (
 		AdditionalStreamInterceptors    []grpc.StreamServerInterceptor
 		Authorizer                      authorization.Authorizer
 		ClaimMapper                     authorization.ClaimMapper
+		InternalFrontendClaimMapper     InternalFrontendClaimMapper
 		TokenProvider                   auth.TokenProvider
 		DataStoreFactory                persistenceClient.AbstractDataStoreFactory
 		VisibilityStoreFactory          visibility.VisibilityStoreFactory
@@ -465,6 +477,9 @@ func (params ServiceProviderParamsCommon) GetCommonServiceOptions(serviceName pr
 				return params.Authorizer
 			},
 			func() authorization.ClaimMapper {
+				if serviceName == primitives.InternalFrontendService {
+					return params.InternalFrontendClaimMapper
+				}
 				return params.ClaimMapper
 			},
 			func() auth.TokenProvider {
@@ -599,7 +614,7 @@ func genericFrontendServiceProvider(
 			case primitives.FrontendService:
 				return params.ClaimMapper
 			case primitives.InternalFrontendService:
-				return authorization.NewInternalClaimMapper()
+				return params.InternalFrontendClaimMapper
 			default:
 				panic("Unexpected frontend service name")
 			}
