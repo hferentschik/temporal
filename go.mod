@@ -4,6 +4,8 @@ go 1.21
 
 require (
 	cloud.google.com/go/storage v1.40.0
+	github.com/Azure/azure-storage-blob-go v0.15.0
+	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/aws/aws-sdk-go v1.51.30
 	github.com/blang/semver/v4 v4.0.0
 	github.com/brianvoe/gofakeit/v6 v6.28.0
@@ -74,6 +76,11 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0 // indirect
 	modernc.org/gc/v3 v3.0.0-20240304020402-f0dba7c97c2b // indirect
+)
+
+require (
+	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
+	github.com/mattn/go-ieproxy v0.0.1 // indirect
 )
 
 require (
