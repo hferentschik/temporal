@@ -2,6 +2,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/temporalio/temporal/badge.svg?branch=main)](https://coveralls.io/github/temporalio/temporal?branch=main)
 [![Discourse](https://img.shields.io/static/v1?label=Discourse&message=Get%20Help&color=informational)](https://community.temporal.io)
 [![Go Report Card][go-report-image]][go-report-url]
+INVALID ADD
 
 [go-report-image]: https://goreportcard.com/badge/github.com/temporalio/temporal
 [go-report-url]: https://goreportcard.com/report/github.com/temporalio/temporal
