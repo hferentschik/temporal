@@ -1,0 +1,40 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "connector",
+    srcs = [
+        "client.go",
+        "client_delegate.go",
+        "client_delegate_mock.go",
+        "client_mock.go",
+    ],
+    importpath = "go.temporal.io/server/common/archiver/azure/connector",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common/archiver",
+        "//common/config",
+        "@com_github_azure_azure_storage_blob_go//azblob",
+        "@org_uber_go_mock//gomock",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":connector",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "connector_test",
+    srcs = [
+        "client_test.go",
+    ],
+    embed = [":connector"],
+    deps = [
+        "//common/archiver",
+        "@com_github_azure_azure_storage_blob_go//azblob",
+        "@com_github_stretchr_testify//require",
+        "@com_github_stretchr_testify//suite",
+        "@org_uber_go_mock//gomock",
+    ],
+)

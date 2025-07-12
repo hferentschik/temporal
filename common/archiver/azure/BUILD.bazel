@@ -1,0 +1,74 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "azure",
+    srcs = [
+        "history_archiver.go",
+        "query_parser.go",
+        "query_parser_mock.go",
+        "util.go",
+        "visibility_archiver.go",
+    ],
+    importpath = "go.temporal.io/server/common/archiver/azure",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//api/archiver/v1:archiver",
+        "//common",
+        "//common/archiver",
+        "//common/archiver/azure/connector",
+        "//common/codec",
+        "//common/config",
+        "//common/log",
+        "//common/log/tag",
+        "//common/metrics",
+        "//common/persistence",
+        "//common/searchattribute",
+        "//common/util",
+        "@com_github_dgryski_go_farm//:go-farm",
+        "@com_github_temporalio_sqlparser//:sqlparser",
+        "@io_temporal_go_api//common/v1:common",
+        "@io_temporal_go_api//history/v1:history",
+        "@io_temporal_go_api//serviceerror",
+        "@io_temporal_go_api//workflow/v1:workflow",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_mock//gomock",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":azure",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "azure_test",
+    srcs = [
+        "history_archiver_test.go",
+        "util_test.go",
+        "visibility_archiver_test.go",
+    ],
+    embed = [":azure"],
+    deps = [
+        "//api/archiver/v1:archiver",
+        "//common",
+        "//common/archiver",
+        "//common/archiver/azure/connector",
+        "//common/codec",
+        "//common/log",
+        "//common/metrics",
+        "//common/persistence",
+        "//common/primitives/timestamp",
+        "//common/searchattribute",
+        "//common/testing/protorequire",
+        "//common/util",
+        "@com_github_stretchr_testify//require",
+        "@com_github_stretchr_testify//suite",
+        "@io_temporal_go_api//enums/v1:enums",
+        "@io_temporal_go_api//history/v1:history",
+        "@io_temporal_go_api//serviceerror",
+        "@io_temporal_go_api//workflow/v1:workflow",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_uber_go_mock//gomock",
+    ],
+)
