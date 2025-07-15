@@ -470,6 +470,7 @@ type (
 		Filestore *FilestoreArchiver `yaml:"filestore"`
 		Gstorage  *GstorageArchiver  `yaml:"gstorage"`
 		S3store   *S3Archiver        `yaml:"s3store"`
+		Azblob    *AzblobArchiver    `yaml:"azblob"`
 	}
 
 	// VisibilityArchival contains the config for visibility archival
@@ -487,6 +488,7 @@ type (
 		Filestore *FilestoreArchiver `yaml:"filestore"`
 		S3store   *S3Archiver        `yaml:"s3store"`
 		Gstorage  *GstorageArchiver  `yaml:"gstorage"`
+		Azblob    *AzblobArchiver    `yaml:"azblob"`
 	}
 
 	// FilestoreArchiver contain the config for filestore archiver
@@ -506,6 +508,12 @@ type (
 		Endpoint         *string `yaml:"endpoint"`
 		S3ForcePathStyle bool    `yaml:"s3ForcePathStyle"`
 		LogLevel         uint    `yaml:"logLevel"`
+	}
+	// Azblob contains the config for Azure archiver
+	AzblobArchiver struct {
+		RegionName    string `yaml:"regionName"`
+		ContainerName string `yaml:"containerName"`
+		LogLevel      string `yaml:"logLevel"`
 	}
 
 	// PublicClient is the config for internal nodes (history/matching/worker) connecting to
