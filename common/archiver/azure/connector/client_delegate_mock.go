@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	azblob "github.com/Azure/azure-storage-blob-go/azblob"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockAzureBlobStorageClient is a mock of AzureBlobStorageClient interface.

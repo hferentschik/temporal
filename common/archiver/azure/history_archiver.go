@@ -55,9 +55,7 @@ type (
 )
 
 func NewHistoryArchiver(
-	executionManager persistence.ExecutionManager,
-	logger log.Logger,
-	metricsHandler metrics.Handler,
+	executionManager persistence.ExecutionManager, logger log.Logger, metricsHandler metrics.Handler,
 	config *config.AzblobArchiver,
 ) (archiver.HistoryArchiver, error) {
 	storage, err := connector.NewClient(context.Background(), config)

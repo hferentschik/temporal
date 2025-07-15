@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/temporalio/sqlparser"
-	"go.temporal.io/server/common/sqlquery"
+
 	"go.temporal.io/server/common/util"
 )
 
@@ -44,12 +44,18 @@ const (
 	PrecisionDay    = "day"
 )
 
+const (
+	queryTemplate = "select * from dummy where %s"
+
+	defaultDateTimeFormat = time.RFC3339
+)
+
 func NewQueryParser() QueryParser {
 	return &queryParser{}
 }
 
 func (p *queryParser) Parse(query string) (*parsedQuery, error) {
-	stmt, err := sqlparser.Parse(fmt.Sprintf(sqlquery.QueryTemplate, query))
+	stmt, err := sqlparser.Parse(fmt.Sprintf(queryTemplate, query))
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +119,7 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 
 	switch colNameStr {
 	case WorkflowID:
-		val, err := sqlquery.ExtractStringValue(valStr)
+		val, err := extractStringValue(valStr)
 		if err != nil {
 			return err
 		}
@@ -126,7 +132,7 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 		}
 		parsedQuery.workflowID = util.Ptr(val)
 	case RunID:
-		val, err := sqlquery.ExtractStringValue(valStr)
+		val, err := extractStringValue(valStr)
 		if err != nil {
 			return err
 		}
@@ -139,7 +145,7 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 		}
 		parsedQuery.runID = util.Ptr(val)
 	case CloseTime:
-		closeTime, err := sqlquery.ConvertToTime(valStr)
+		closeTime, err := convertToTime(valStr)
 		if err != nil {
 			return err
 		}
@@ -149,7 +155,7 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 		parsedQuery.closeTime = closeTime
 
 	case StartTime:
-		startTime, err := sqlquery.ConvertToTime(valStr)
+		startTime, err := convertToTime(valStr)
 		if err != nil {
 			return err
 		}
@@ -158,7 +164,7 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 		}
 		parsedQuery.startTime = startTime
 	case WorkflowType:
-		val, err := sqlquery.ExtractStringValue(valStr)
+		val, err := extractStringValue(valStr)
 		if err != nil {
 			return err
 		}
@@ -171,7 +177,7 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 		}
 		parsedQuery.workflowType = util.Ptr(val)
 	case SearchPrecision:
-		val, err := sqlquery.ExtractStringValue(valStr)
+		val, err := extractStringValue(valStr)
 		if err != nil {
 			return err
 		}
@@ -195,4 +201,24 @@ func (p *queryParser) convertComparisonExpr(compExpr *sqlparser.ComparisonExpr, 
 	}
 
 	return nil
+}
+
+func convertToTime(timeStr string) (time.Time, error) {
+	timestampStr, err := extractStringValue(timeStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+	parsedTime, err := time.Parse(defaultDateTimeFormat, timestampStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return parsedTime, nil
+}
+
+func extractStringValue(s string) (string, error) {
+	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		return s[1 : len(s)-1], nil
+	}
+	return "", fmt.Errorf("value %s is not a string value", s)
 }

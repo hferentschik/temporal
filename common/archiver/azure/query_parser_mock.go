@@ -1,7 +1,7 @@
 package azure
 
 import (
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )
 

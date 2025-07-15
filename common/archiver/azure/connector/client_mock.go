@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
+	gomock "github.com/golang/mock/gomock"
 	archiver "go.temporal.io/server/common/archiver"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClient is a mock of Client interface.

@@ -19,7 +19,7 @@ import (
 	"go.temporal.io/server/common/metrics"
 	"go.temporal.io/server/common/persistence"
 
-	"go.uber.org/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -119,11 +119,12 @@ func (h *historyArchiverSuite) TestValidateURI() {
 }
 
 func (h *historyArchiverSuite) TestArchive_Fail_InvalidURI() {
-	mockStorageClient := connector.NewMockClient(h.controller)
+	mockStorageClient := connector.NewMockAzureBlobStorageClient(h.controller)
+	storageWrapper, _ := connector.NewClientWithParams(mockStorageClient)
 
 	historyIterator := archiver.NewMockHistoryIterator(h.controller)
 
-	historyArchiver := newHistoryArchiver(h.executionManager, h.logger, h.metricsHandler, historyIterator, mockStorageClient)
+	historyArchiver := newHistoryArchiver(h.executionManager, h.logger, h.metricsHandler, historyIterator, storageWrapper)
 	request := &archiver.ArchiveHistoryRequest{
 		NamespaceID:          testNamespaceID,
 		Namespace:            testNamespace,
@@ -217,9 +218,11 @@ func (h *historyArchiverSuite) TestArchive_Success() {
 
 func (h *historyArchiverSuite) TestGet_Fail_InvalidURI() {
 	ctx := context.Background()
-	mockStorageClient := connector.NewMockClient(h.controller)
+	mockStorageClient := connector.NewMockAzureBlobStorageClient(h.controller)
+	storageWrapper, _ := connector.NewClientWithParams(mockStorageClient)
 	historyIterator := archiver.NewMockHistoryIterator(h.controller)
-	historyArchiver := newHistoryArchiver(h.executionManager, h.logger, h.metricsHandler, historyIterator, mockStorageClient)
+	//container := &archiver.HistoryBootstrapContainer{}
+	historyArchiver := newHistoryArchiver(h.executionManager, h.logger, h.metricsHandler, historyIterator, storageWrapper)
 
 	request := &archiver.GetHistoryRequest{
 		NamespaceID: testNamespaceID,

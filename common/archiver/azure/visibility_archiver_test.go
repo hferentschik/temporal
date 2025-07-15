@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -20,7 +21,6 @@ import (
 	"go.temporal.io/server/common/searchattribute"
 	"go.temporal.io/server/common/testing/protorequire"
 	"go.temporal.io/server/common/util"
-	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -183,6 +183,7 @@ func (s *visibilityArchiverSuite) TestQuery_Fail_InvalidQuery() {
 	s.NoError(err)
 	storageWrapper := connector.NewMockClient(s.controller)
 	storageWrapper.EXPECT().Exist(gomock.Any(), URI, gomock.Any()).Return(false, nil)
+
 	visibilityArchiver := newVisibilityArchiver(s.logger, s.metricsHandler, storageWrapper)
 	s.NoError(err)
 
@@ -203,6 +204,7 @@ func (s *visibilityArchiverSuite) TestQuery_Fail_InvalidToken() {
 	s.NoError(err)
 	storageWrapper := connector.NewMockClient(s.controller)
 	storageWrapper.EXPECT().Exist(gomock.Any(), URI, gomock.Any()).Return(false, nil)
+
 	visibilityArchiver := newVisibilityArchiver(s.logger, s.metricsHandler, storageWrapper)
 	s.NoError(err)
 
@@ -327,6 +329,7 @@ func (s *visibilityArchiverSuite) TestQuery_EmptyQuery_InvalidNamespace() {
 	s.NoError(err)
 	storageWrapper := connector.NewMockClient(s.controller)
 	storageWrapper.EXPECT().Exist(gomock.Any(), URI, gomock.Any()).Return(false, nil)
+
 	arc := newVisibilityArchiver(s.logger, s.metricsHandler, storageWrapper)
 	req := &archiver.QueryVisibilityRequest{
 		NamespaceID:   "",
@@ -346,6 +349,7 @@ func (s *visibilityArchiverSuite) TestQuery_EmptyQuery_ZeroPageSize() {
 	s.NoError(err)
 	storageWrapper := connector.NewMockClient(s.controller)
 	storageWrapper.EXPECT().Exist(gomock.Any(), URI, gomock.Any()).Return(false, nil)
+
 	arc := newVisibilityArchiver(s.logger, s.metricsHandler, storageWrapper)
 
 	req := &archiver.QueryVisibilityRequest{
@@ -401,7 +405,6 @@ func (s *visibilityArchiverSuite) TestQuery_EmptyQuery_Pagination() {
 	storageWrapper.EXPECT().Get(gomock.Any(), URI,
 		"test-namespace-id/closeTimeout_2020-02-05T09:56:14Z_test-workflow-id2_MobileOnlyWorkflow"+
 			"::processMobileOnly_test-run-id.visibility").Return([]byte(exampleVisibilityRecord2), nil)
-
 	arc := newVisibilityArchiver(s.logger, s.metricsHandler, storageWrapper)
 
 	response := &archiver.QueryVisibilityResponse{

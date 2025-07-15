@@ -104,7 +104,7 @@ func NewArchiverProvider(
 func (p *archiverProvider) RegisterBootstrapContainer(
 	serviceName string,
 	historyContainer *archiver.HistoryBootstrapContainer,
-	visibilityContainter *archiver.VisibilityBootstrapContainer,
+	visibilityContainer *archiver.VisibilityBootstrapContainer,
 ) error {
 	p.Lock()
 	defer p.Unlock()
@@ -112,15 +112,15 @@ func (p *archiverProvider) RegisterBootstrapContainer(
 	if _, ok := p.historyContainers[serviceName]; ok && historyContainer != nil {
 		return ErrBootstrapContainerAlreadyRegistered
 	}
-	if _, ok := p.visibilityContainers[serviceName]; ok && visibilityContainter != nil {
+	if _, ok := p.visibilityContainers[serviceName]; ok && visibilityContainer != nil {
 		return ErrBootstrapContainerAlreadyRegistered
 	}
 
 	if historyContainer != nil {
 		p.historyContainers[serviceName] = historyContainer
 	}
-	if visibilityContainter != nil {
-		p.visibilityContainers[serviceName] = visibilityContainter
+	if visibilityContainer != nil {
+		p.visibilityContainers[serviceName] = visibilityContainer
 	}
 	return nil
 }
@@ -159,10 +159,10 @@ func (p *archiverProvider) GetHistoryArchiver(scheme, serviceName string) (histo
 		}
 		historyArchiver, err = s3store.NewHistoryArchiver(container, p.historyArchiverConfigs.S3store)
 	case azure.URIScheme:
-		if p.visibilityArchiverConfigs.Azblob == nil {
+		if p.historyArchiverConfigs.Azblob == nil {
 			return nil, ErrArchiverConfigNotFound
 		}
-		historyArchiver, err = azure.NewHistoryArchiver(p.executionManager, p.logger, p.metricsHandler, p.visibilityArchiverConfigs.Azblob)
+		historyArchiver, err = azure.NewHistoryArchiver(container, p.historyArchiverConfigs.Azblob)
 	default:
 		return nil, ErrUnknownScheme
 	}
@@ -217,7 +217,7 @@ func (p *archiverProvider) GetVisibilityArchiver(scheme, serviceName string) (ar
 		if p.visibilityArchiverConfigs.Azblob == nil {
 			return nil, ErrArchiverConfigNotFound
 		}
-		visibilityArchiver, err = azure.NewVisibilityArchiver(p.logger, p.metricsHandler, p.visibilityArchiverConfigs.Azblob)
+		visibilityArchiver, err = azure.NewVisibilityArchiver(container, p.visibilityArchiverConfigs.Azblob)
 
 	default:
 		return nil, ErrUnknownScheme
