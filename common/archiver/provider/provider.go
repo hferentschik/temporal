@@ -162,7 +162,7 @@ func (p *archiverProvider) GetHistoryArchiver(scheme, serviceName string) (histo
 		if p.historyArchiverConfigs.Azblob == nil {
 			return nil, ErrArchiverConfigNotFound
 		}
-		historyArchiver, err = azure.NewHistoryArchiver(container, p.historyArchiverConfigs.Azblob)
+		historyArchiver, err = azure.NewHistoryArchiver(container.ExecutionManager, container.Logger, container.MetricsHandler, p.historyArchiverConfigs.Azblob)
 	default:
 		return nil, ErrUnknownScheme
 	}
@@ -217,7 +217,7 @@ func (p *archiverProvider) GetVisibilityArchiver(scheme, serviceName string) (ar
 		if p.visibilityArchiverConfigs.Azblob == nil {
 			return nil, ErrArchiverConfigNotFound
 		}
-		visibilityArchiver, err = azure.NewVisibilityArchiver(container, p.visibilityArchiverConfigs.Azblob)
+		visibilityArchiver, err = azure.NewVisibilityArchiver(container.Logger, container.MetricsHandler, p.visibilityArchiverConfigs.Azblob)
 
 	default:
 		return nil, ErrUnknownScheme
