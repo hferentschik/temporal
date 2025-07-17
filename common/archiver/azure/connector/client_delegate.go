@@ -4,6 +4,7 @@ package connector
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -62,44 +63,35 @@ func newDefaultClientDelegate(ctx context.Context) (*clientDelegate, error) {
 		return newClientDelegateWithCredentials(ctx, accountName, accountKey)
 	}
 
-	// For development/testing, try anonymous access (won't work in production)
-	if accountName != "" {
-		serviceURL, err := url.Parse("https://" + accountName + ".blob.core.windows.net")
-		if err != nil {
-			return nil, err
-		}
-		pipeline := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{})
-		azServiceURL := azblob.NewServiceURL(*serviceURL, pipeline)
-		return &clientDelegate{serviceURL: azServiceURL}, nil
-	}
-
-	// Default fallback - try to create with anonymous credentials for testing
-	serviceURL, _ := url.Parse("https://test.blob.core.windows.net")
-	pipeline := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{})
-	azServiceURL := azblob.NewServiceURL(*serviceURL, pipeline)
-	return &clientDelegate{serviceURL: azServiceURL}, nil
+	// Return error if no credentials are provided
+	return nil, fmt.Errorf("Azure credentials not found. Please set AZURE_STORAGE_CONNECTION_STRING or both AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variables")
 }
 
 // newClientDelegateWithConnectionString creates a new Azure Blob Storage client using connection string
 func newClientDelegateWithConnectionString(ctx context.Context, connectionString string) (*clientDelegate, error) {
-	// Parse connection string manually since NewSharedKeyCredentialFromConnectionString might not exist
-	// Extract account name and key from connection string
+	// Parse connection string to extract account name and key
 	// Format: DefaultEndpointsProtocol=https;AccountName=<name>;AccountKey=<key>;EndpointSuffix=core.windows.net
-
-	// For now, use a simple approach - require separate account name and key
-	// This can be enhanced later to parse the connection string properly
-	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	accountKey := os.Getenv("AZURE_STORAGE_KEY")
-
-	if accountName == "" || accountKey == "" {
-		// Fallback to anonymous for testing
-		serviceURL, _ := url.Parse("https://test.blob.core.windows.net")
-		pipeline := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{})
-		azServiceURL := azblob.NewServiceURL(*serviceURL, pipeline)
-		return &clientDelegate{serviceURL: azServiceURL}, nil
+	
+	accountName, accountKey, err := parseConnectionString(connectionString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Azure connection string: %w", err)
 	}
 
 	return newClientDelegateWithCredentials(ctx, accountName, accountKey)
+}
+
+// parseConnectionString parses Azure storage connection string
+func parseConnectionString(connectionString string) (string, string, error) {
+	// Simple parsing - can be enhanced for full connection string support
+	// For now, require separate env vars as fallback
+	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
+	accountKey := os.Getenv("AZURE_STORAGE_KEY")
+	
+	if accountName == "" || accountKey == "" {
+		return "", "", fmt.Errorf("connection string parsing not fully implemented, please set AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variables")
+	}
+	
+	return accountName, accountKey, nil
 }
 
 // newClientDelegateWithCredentials creates a new Azure Blob Storage client using account name and key

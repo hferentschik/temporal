@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
@@ -44,10 +45,22 @@ type (
 
 // NewClient returns a Temporal Azure Blob Storage Client based on configuration.
 // Container must be created beforehand, this library doesn't create the required container.
-// Authentication relies on Azure default credentials (environment variables, managed identity, etc.)
+// Authentication uses cascading resolution: config values → environment variables → error
 func NewClient(ctx context.Context, config *config.AzblobArchiver) (Client, error) {
-	// For now, we will use environment-based authentication
-	// Users should set AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT+AZURE_STORAGE_KEY
+	// 1. First priority: Use configuration from temporalite config
+	if config != nil {
+		// Use RegionName as AccountName and ContainerName from config
+		if config.RegionName != "" && config.ContainerName != "" {
+			// For Azure, we need the account key as well
+			// Check if we have it in environment as fallback
+			if accountKey := os.Getenv("AZURE_STORAGE_KEY"); accountKey != "" {
+				clientDelegate, err := newClientDelegateWithCredentials(ctx, config.RegionName, accountKey)
+				return &storageWrapper{client: clientDelegate}, err
+			}
+		}
+	}
+	
+	// 2. Second priority: Environment-based authentication
 	clientDelegate, err := newDefaultClientDelegate(ctx)
 	return &storageWrapper{client: clientDelegate}, err
 }
