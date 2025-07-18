@@ -71,7 +71,6 @@ func newDefaultClientDelegate(ctx context.Context) (*clientDelegate, error) {
 func newClientDelegateWithConnectionString(ctx context.Context, connectionString string) (*clientDelegate, error) {
 	// Parse connection string to extract account name and key
 	// Format: DefaultEndpointsProtocol=https;AccountName=<name>;AccountKey=<key>;EndpointSuffix=core.windows.net
-	
 	accountName, accountKey, err := parseConnectionString(connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Azure connection string: %w", err)
@@ -86,11 +85,10 @@ func parseConnectionString(connectionString string) (string, string, error) {
 	// For now, require separate env vars as fallback
 	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
 	accountKey := os.Getenv("AZURE_STORAGE_KEY")
-	
 	if accountName == "" || accountKey == "" {
 		return "", "", fmt.Errorf("connection string parsing not fully implemented, please set AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variables")
 	}
-	
+
 	return accountName, accountKey, nil
 }
 
