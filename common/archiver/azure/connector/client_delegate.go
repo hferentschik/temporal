@@ -8,14 +8,23 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 )
 
 type (
 	// AzureBlobStorageClient is an interface that exposes methods from Azure Blob Storage client
 	AzureBlobStorageClient interface {
 		Container(containerName string) ContainerHandleWrapper
+	}
+
+	// Config holds the configuration for Azure Blob Storage client (similar to temporal-large-payload-codec)
+	Config struct {
+		AccountName string
+		TenantID    string
 	}
 
 	clientDelegate struct {
@@ -51,33 +60,89 @@ type (
 
 // newDefaultClientDelegate creates a new Azure Blob Storage client using environment variables
 func newDefaultClientDelegate(ctx context.Context) (*clientDelegate, error) {
-	// Get required environment variables
-	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT_NAME")
-	tenantID := os.Getenv("AZURE_TENANT_ID")
+	return newDefaultClientDelegateWithConfig(ctx, nil)
+}
+
+// newDefaultClientDelegateWithConfig creates a new Azure Blob Storage client using config with environment variable fallback
+func newDefaultClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDelegate, error) {
+	var accountName, tenantID string
 	
+	// 1. First priority: Use config if provided
+	if config != nil {
+		accountName = config.AccountName
+		tenantID = config.TenantID
+	}
+	
+	// 2. Second priority: Environment variables as fallback
 	if accountName == "" {
-		return nil, fmt.Errorf("AZURE_STORAGE_ACCOUNT_NAME environment variable is required")
+		accountName = os.Getenv("AZURE_STORAGE_ACCOUNT_NAME")
 	}
 	if tenantID == "" {
-		return nil, fmt.Errorf("AZURE_TENANT_ID environment variable is required")
+		tenantID = os.Getenv("AZURE_TENANT_ID")
+	}
+	
+	// 3. Validate that we have the required values
+	if accountName == "" {
+		return nil, fmt.Errorf("Azure storage account name is required - provide via config or AZURE_STORAGE_ACCOUNT_NAME environment variable")
+	}
+	if tenantID == "" {
+		return nil, fmt.Errorf("Azure tenant ID is required - provide via config or AZURE_TENANT_ID environment variable")
 	}
 
-	return newClientDelegateWithManagedIdentity(ctx, accountName, tenantID)
+	finalConfig := &Config{
+		AccountName: accountName,
+		TenantID:    tenantID,
+	}
+	
+	return newClientDelegateWithConfig(ctx, finalConfig)
 }
 
 // newClientDelegateWithManagedIdentity creates a new Azure Blob Storage client using managed identity
 func newClientDelegateWithManagedIdentity(ctx context.Context, accountName, tenantID string) (*clientDelegate, error) {
-	serviceURL, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", accountName))
+	config := &Config{
+		AccountName: accountName,
+		TenantID:    tenantID,
+	}
+	return newClientDelegateWithConfig(ctx, config)
+}
+
+// newClientDelegateWithConfig creates a new Azure client similar to temporal-large-payload-codec pattern
+func newClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDelegate, error) {
+	serviceURL, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", config.AccountName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse storage account URL: %w", err)
 	}
 
-	// Create anonymous credential - in a real Azure environment with managed identity,
-	// this would be replaced with proper token-based authentication
-	// The environment variables AZURE_STORAGE_ACCOUNT_NAME and AZURE_TENANT_ID 
-	// are validated but the actual authentication relies on the Azure environment
-	credential := azblob.NewAnonymousCredential()
+	// Use azidentity.NewDefaultAzureCredential() like temporal-large-payload-codec
+	cred, err := azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create azure credential: %w", err)
+	}
 
+	// Create a token credential that works with the old azblob SDK
+	// This bridges the new azidentity with the old azblob SDK
+	tokenCredential := azblob.NewTokenCredential("", func(credential azblob.TokenCredential) time.Duration {
+		// Get a new token from azidentity
+		token, err := cred.GetToken(context.Background(), policy.TokenRequestOptions{
+			Scopes: []string{"https://storage.azure.com/.default"},
+		})
+		if err != nil {
+			// Return 0 to stop refreshing on error
+			return 0
+		}
+		
+		// Update the token credential
+		credential.SetToken(token.Token)
+		
+		// Calculate refresh duration (refresh 5 minutes before expiry)
+		refreshIn := time.Until(token.ExpiresOn) - (5 * time.Minute)
+		if refreshIn <= 0 {
+			refreshIn = 1 * time.Minute // Minimum refresh interval
+		}
+		return refreshIn
+	})
+
+	credential := tokenCredential
 	pipeline := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 	azServiceURL := azblob.NewServiceURL(*serviceURL, pipeline)
 

@@ -44,10 +44,20 @@ type (
 
 // NewClient returns a Temporal Azure Blob Storage Client based on configuration.
 // Container must be created beforehand, this library doesn't create the required container.
-// Authentication uses environment variables: AZURE_STORAGE_ACCOUNT_NAME and AZURE_TENANT_ID
+// Authentication supports config values with environment variable fallback
 func NewClient(ctx context.Context, config *config.AzblobArchiver) (Client, error) {
-	// Use environment-based authentication with managed identity
-	clientDelegate, err := newDefaultClientDelegate(ctx)
+	var azureConfig *Config
+	
+	// Create azure config from temporalite config if provided
+	if config != nil && config.RegionName != "" {
+		azureConfig = &Config{
+			AccountName: config.RegionName, // Using RegionName as AccountName for compatibility
+			// TenantID will come from environment variable AZURE_TENANT_ID
+		}
+	}
+	
+	// Use config-based authentication with environment variable fallback
+	clientDelegate, err := newDefaultClientDelegateWithConfig(ctx, azureConfig)
 	return &storageWrapper{client: clientDelegate}, err
 }
 
