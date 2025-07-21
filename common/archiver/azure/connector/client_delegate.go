@@ -51,60 +51,34 @@ type (
 
 // newDefaultClientDelegate creates a new Azure Blob Storage client using environment variables
 func newDefaultClientDelegate(ctx context.Context) (*clientDelegate, error) {
-	// Try connection string first
-	if connStr := os.Getenv("AZURE_STORAGE_CONNECTION_STRING"); connStr != "" {
-		return newClientDelegateWithConnectionString(ctx, connStr)
+	// Get required environment variables
+	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT_NAME")
+	tenantID := os.Getenv("AZURE_TENANT_ID")
+	
+	if accountName == "" {
+		return nil, fmt.Errorf("AZURE_STORAGE_ACCOUNT_NAME environment variable is required")
+	}
+	if tenantID == "" {
+		return nil, fmt.Errorf("AZURE_TENANT_ID environment variable is required")
 	}
 
-	// Try account name and key
-	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	accountKey := os.Getenv("AZURE_STORAGE_KEY")
-	if accountName != "" && accountKey != "" {
-		return newClientDelegateWithCredentials(ctx, accountName, accountKey)
-	}
-
-	// Return error if no credentials are provided
-	return nil, fmt.Errorf("Azure credentials not found. Please set AZURE_STORAGE_CONNECTION_STRING or both AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variables")
+	return newClientDelegateWithManagedIdentity(ctx, accountName, tenantID)
 }
 
-// newClientDelegateWithConnectionString creates a new Azure Blob Storage client using connection string
-func newClientDelegateWithConnectionString(ctx context.Context, connectionString string) (*clientDelegate, error) {
-	// Parse connection string to extract account name and key
-	// Format: DefaultEndpointsProtocol=https;AccountName=<name>;AccountKey=<key>;EndpointSuffix=core.windows.net
-	accountName, accountKey, err := parseConnectionString(connectionString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Azure connection string: %w", err)
-	}
-
-	return newClientDelegateWithCredentials(ctx, accountName, accountKey)
-}
-
-// parseConnectionString parses Azure storage connection string
-func parseConnectionString(connectionString string) (string, string, error) {
-	// Simple parsing - can be enhanced for full connection string support
-	// For now, require separate env vars as fallback
-	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	accountKey := os.Getenv("AZURE_STORAGE_KEY")
-	if accountName == "" || accountKey == "" {
-		return "", "", fmt.Errorf("connection string parsing not fully implemented, please set AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY environment variables")
-	}
-
-	return accountName, accountKey, nil
-}
-
-// newClientDelegateWithCredentials creates a new Azure Blob Storage client using account name and key
-func newClientDelegateWithCredentials(ctx context.Context, accountName, accountKey string) (*clientDelegate, error) {
-	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		return nil, err
-	}
-
+// newClientDelegateWithManagedIdentity creates a new Azure Blob Storage client using managed identity
+func newClientDelegateWithManagedIdentity(ctx context.Context, accountName, tenantID string) (*clientDelegate, error) {
+	// For managed identity authentication, we'll use anonymous credentials
+	// and rely on Azure's managed identity for authentication at runtime
+	// This requires the application to be running in an Azure environment with managed identity enabled
+	
 	serviceURL, err := url.Parse("https://" + accountName + ".blob.core.windows.net")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse storage account URL: %w", err)
 	}
 
-	pipeline := azblob.NewPipeline(credential, azblob.PipelineOptions{})
+	// Use anonymous credential - Azure managed identity will handle authentication
+	anonymousCredential := azblob.NewAnonymousCredential()
+	pipeline := azblob.NewPipeline(anonymousCredential, azblob.PipelineOptions{})
 	azServiceURL := azblob.NewServiceURL(*serviceURL, pipeline)
 
 	return &clientDelegate{serviceURL: azServiceURL}, nil

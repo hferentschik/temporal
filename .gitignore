@@ -31,7 +31,7 @@
 /dist
 
 # direnv
-.envrc
+.env
 
 # Git SPR: https://github.com/ejoffe/spr
 .spr.yml
