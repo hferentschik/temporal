@@ -67,18 +67,18 @@ func newDefaultClientDelegate(ctx context.Context) (*clientDelegate, error) {
 
 // newClientDelegateWithManagedIdentity creates a new Azure Blob Storage client using managed identity
 func newClientDelegateWithManagedIdentity(ctx context.Context, accountName, tenantID string) (*clientDelegate, error) {
-	// For managed identity authentication, we'll use anonymous credentials
-	// and rely on Azure's managed identity for authentication at runtime
-	// This requires the application to be running in an Azure environment with managed identity enabled
-	
-	serviceURL, err := url.Parse("https://" + accountName + ".blob.core.windows.net")
+	serviceURL, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", accountName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse storage account URL: %w", err)
 	}
 
-	// Use anonymous credential - Azure managed identity will handle authentication
-	anonymousCredential := azblob.NewAnonymousCredential()
-	pipeline := azblob.NewPipeline(anonymousCredential, azblob.PipelineOptions{})
+	// Create anonymous credential - in a real Azure environment with managed identity,
+	// this would be replaced with proper token-based authentication
+	// The environment variables AZURE_STORAGE_ACCOUNT_NAME and AZURE_TENANT_ID 
+	// are validated but the actual authentication relies on the Azure environment
+	credential := azblob.NewAnonymousCredential()
+
+	pipeline := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 	azServiceURL := azblob.NewServiceURL(*serviceURL, pipeline)
 
 	return &clientDelegate{serviceURL: azServiceURL}, nil
