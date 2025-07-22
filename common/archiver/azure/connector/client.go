@@ -52,7 +52,7 @@ func NewClient(ctx context.Context, config *config.AzblobArchiver) (Client, erro
 	if config != nil && config.RegionName != "" {
 		azureConfig = &Config{
 			AccountName: config.RegionName, // Using RegionName as AccountName for compatibility
-			// TenantID will come from environment variable AZURE_TENANT_ID
+			TenantID:    config.TenantID,
 		}
 	}
 	

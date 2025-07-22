@@ -92,7 +92,6 @@ func (h *historyArchiver) Archive(
 	handler := h.metricsHandler.WithTags(metrics.OperationTag(metrics.HistoryArchiverScope), metrics.NamespaceTag(request.Namespace))
 	featureCatalog := archiver.GetFeatureCatalog(opts...)
 	startTime := time.Now().UTC()
-
 	defer func() {
 		metrics.ServiceLatency.With(handler).Record(time.Since(startTime))
 		if err != nil {
