@@ -514,6 +514,7 @@ type (
 		RegionName    string `yaml:"regionName"`
 		ContainerName string `yaml:"containerName"`
 		LogLevel      string `yaml:"logLevel"`
+		TenantID      string `yaml:"tenantId"`
 	}
 
 	// PublicClient is the config for internal nodes (history/matching/worker) connecting to
