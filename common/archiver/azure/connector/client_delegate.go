@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
 type (
@@ -66,13 +66,13 @@ func newDefaultClientDelegate(ctx context.Context) (*clientDelegate, error) {
 // newDefaultClientDelegateWithConfig creates a new Azure Blob Storage client using config with environment variable fallback
 func newDefaultClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDelegate, error) {
 	var accountName, tenantID string
-	
+
 	// 1. First priority: Use config if provided
 	if config != nil {
 		accountName = config.AccountName
 		tenantID = config.TenantID
 	}
-	
+
 	// 2. Second priority: Environment variables as fallback
 	if accountName == "" {
 		accountName = os.Getenv("AZURE_STORAGE_ACCOUNT_NAME")
@@ -80,7 +80,7 @@ func newDefaultClientDelegateWithConfig(ctx context.Context, config *Config) (*c
 	if tenantID == "" {
 		tenantID = os.Getenv("AZURE_TENANT_ID")
 	}
-	
+
 	// 3. Validate that we have the required values
 	if accountName == "" {
 		return nil, fmt.Errorf("Azure storage account name is required - provide via config or AZURE_STORAGE_ACCOUNT_NAME environment variable")
@@ -93,7 +93,7 @@ func newDefaultClientDelegateWithConfig(ctx context.Context, config *Config) (*c
 		AccountName: accountName,
 		TenantID:    tenantID,
 	}
-	
+
 	return newClientDelegateWithConfig(ctx, finalConfig)
 }
 
@@ -130,10 +130,10 @@ func newClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDe
 			// Return 0 to stop refreshing on error
 			return 0
 		}
-		
+
 		// Update the token credential
 		credential.SetToken(token.Token)
-		
+
 		// Calculate refresh duration (refresh 5 minutes before expiry)
 		refreshIn := time.Until(token.ExpiresOn) - (5 * time.Minute)
 		if refreshIn <= 0 {
