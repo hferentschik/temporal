@@ -108,7 +108,7 @@ func newClientDelegateWithManagedIdentity(ctx context.Context, accountName, tena
 
 // newClientDelegateWithConfig creates a new Azure client similar to temporal-large-payload-codec pattern
 func newClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDelegate, error) {
-	serviceURL, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", config.AccountName))
+	serviceURL, err := url.Parse(fmt.Sprintf("as://%s.blob.core.windows.net", config.AccountName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse storage account URL: %w", err)
 	}
