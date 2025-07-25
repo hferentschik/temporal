@@ -131,6 +131,7 @@ type (
 		PersistenceFactoryProvider persistenceClient.FactoryProviderFn
 		DynamicConfigClient        dynamicconfig.Client
 		TLSConfigProvider          encryption.TLSConfigProvider
+		EsConfig                   *esclient.Config
 		EsClient                   esclient.Client
 		MetricsHandler             metrics.Handler
 		TestHooks                  testhooks.TestHooks
@@ -348,6 +349,7 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		PersistenceFactoryProvider: persistenceFactoryProvider,
 		DynamicConfigClient:        dcClient,
 		TLSConfigProvider:          tlsConfigProvider,
+		EsConfig:                   esConfig,
 		EsClient:                   esClient,
 		MetricsHandler:             metricHandler,
 		TestHooks:                  testHooks,

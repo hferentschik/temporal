@@ -108,6 +108,8 @@ require (
 	golang.org/x/perf v0.0.0-20260709024250-82a0b07e230d // indirect
 )
 
+require github.com/golang/mock v1.6.0 // indirect
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect; indirect e
@@ -161,7 +163,6 @@ require (
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/swag v0.26.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -239,3 +240,9 @@ require (
 )
 
 tool golang.org/x/perf/cmd/benchstat
+
+replace github.com/olivere/elastic/v7 => github.com/DataDog/temporal-elastic/v7 v7.0.32-dd-aws-sdk-2
+
+replace github.com/smartystreets/assertions => github.com/smarty/assertions v1.14.0
+
+replace github.com/smartystreets/gunit => github.com/smarty/gunit v1.4.0

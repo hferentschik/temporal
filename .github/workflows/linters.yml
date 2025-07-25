@@ -3,6 +3,9 @@ on:
   pull_request:
 permissions:
   contents: read
+  id-token: write # Required for dd-octo-sts OIDC token exchange (private Go deps).
+env:
+  GOPRIVATE: github.com/DataDog/*
 jobs:
   lint-actions:
     runs-on: ubuntu-24.04-arm
@@ -71,9 +74,19 @@ jobs:
   lint-workflows:
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
@@ -134,9 +147,19 @@ jobs:
   parallelize-tests:
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
@@ -160,9 +183,19 @@ jobs:
   golangci:
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:

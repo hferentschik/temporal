@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  id-token: write # Required for dd-octo-sts OIDC token exchange (private Go deps).
 
 concurrency: # Auto-cancel existing runs in the PR when a new commit is pushed
   group: run-tests-${{ github.head_ref || github.run_id }}
@@ -26,6 +28,7 @@ env:
   TEMPORAL_AWAIT_ATTEMPT_TIMEOUT: 15s
   MAX_TEST_ATTEMPTS: 3
   SHARD_COUNT: 5 # NOTE: must match shard count in optimize-test-sharding.yml
+  GOPRIVATE: github.com/DataDog/*
 
 jobs:
   test-setup:
@@ -204,10 +207,20 @@ jobs:
     name: Pre-build for cache
     runs-on: ubuntu-24.04-arm # NOTE: avoid using larger runners as they have high provisioning time (up to several minutes)
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Prepare Go
         id: prepare-go
@@ -241,12 +254,22 @@ jobs:
     needs: [pre-build]
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
           # buf-breaking tries to compare HEAD against merge base so we need to be able to find it
           fetch-depth: 100
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Prepare Go
         uses: ./.github/actions/prepare-go
@@ -270,10 +293,20 @@ jobs:
       TEST_TIMEOUT: 15m
       GITHUB_TIMEOUT: 20
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Prepare Go
         uses: ./.github/actions/prepare-go
@@ -302,10 +335,20 @@ jobs:
       LEAK_OUTPUT_DIR: ${{ github.workspace }}/.testoutput/leakcheck
       LEAK_GC_SETTLE_TIMEOUT: 30s
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Prepare Go
         uses: ./.github/actions/prepare-go
@@ -332,10 +375,20 @@ jobs:
       TEST_TIMEOUT: 10m
       GITHUB_TIMEOUT: 15
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Start containerized dependencies
         uses: ./.github/actions/docker-compose-start
@@ -393,10 +446,24 @@ jobs:
       GITHUB_TIMEOUT: ${{ matrix.github_timeout }}
       CONTAINERS: ${{ join(matrix.containers, ' ') }}
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
+      - uses: ScribeMD/docker-cache@0.3.7
+        with:
+          key: docker-${{ runner.os }}${{ runner.arch }}-${{ hashFiles(env.DOCKER_COMPOSE_FILE) }}
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Start containerized dependencies
         uses: ./.github/actions/docker-compose-start
@@ -458,10 +525,20 @@ jobs:
     needs: [pre-build]
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Start PostgreSQL
         uses: ./.github/actions/docker-compose-start
