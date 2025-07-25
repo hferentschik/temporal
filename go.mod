@@ -83,6 +83,8 @@ require (
 	modernc.org/sqlite v1.44.3
 )
 
+require github.com/golang/mock v1.6.0 // indirect
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.121.6 // indirect; indirect e
@@ -138,7 +140,6 @@ require (
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -215,3 +216,9 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+replace github.com/olivere/elastic/v7 => github.com/DataDog/temporal-elastic/v7 v7.0.32-dd-aws-sdk-2
+
+replace github.com/smartystreets/assertions => github.com/smarty/assertions v1.14.0
+
+replace github.com/smartystreets/gunit => github.com/smarty/gunit v1.4.0
