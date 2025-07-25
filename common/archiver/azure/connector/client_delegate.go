@@ -114,7 +114,9 @@ func newClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDe
 	}
 
 	// Use azidentity.NewDefaultAzureCredential() like temporal-large-payload-codec
-	cred, err := azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{})
+	cred, err := azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{
+		TenantID: config.TenantID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create azure credential: %w", err)
 	}
