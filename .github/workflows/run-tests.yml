@@ -50,6 +50,11 @@ on:
         type: string
         default: '["sqlite"]'
 
+permissions:
+  contents: read
+  actions: read
+  id-token: write # Required for dd-octo-sts OIDC token exchange (private Go deps).
+
 concurrency: # Auto-cancel existing runs in the PR when a new commit is pushed
   group: run-tests-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -63,6 +68,7 @@ env:
   DOCKER_COMPOSE_FILE: ./develop/github/docker-compose.yml
   TEMPORAL_VERSION_CHECK_DISABLED: 1
   MAX_TEST_ATTEMPTS: 3
+  GOPRIVATE: github.com/DataDog/*
 
 jobs:
   set-up-single-test:
@@ -82,6 +88,13 @@ jobs:
       modified_functional_ndc_test_suites: ${{ env.modified_functional_ndc_test_suites }}
       modified_functional_xdc_test_suites: ${{ env.modified_functional_xdc_test_suites }}
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - id: generate_output
         run: |
           shards=3
@@ -114,6 +127,9 @@ jobs:
           ref: ${{ env.COMMIT }}
           fetch-depth: 0
 
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
       - name: Fetch base branch
         run: git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
 
@@ -139,11 +155,22 @@ jobs:
     name: Pre-build for cache
     runs-on: ubuntu-latest
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v4
         if: ${{ !inputs.run_single_functional_test && !inputs.run_single_unit_test }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        if: ${{ !inputs.run_single_functional_test && !inputs.run_single_unit_test }}
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@v5
         if: ${{ !inputs.run_single_functional_test && !inputs.run_single_unit_test }}
@@ -181,6 +208,13 @@ jobs:
     needs: pre-build
     runs-on: ubuntu-latest
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v4
         if: ${{ !inputs.run_single_functional_test && !inputs.run_single_unit_test }}
         with:
@@ -188,6 +222,10 @@ jobs:
           ref: ${{ env.COMMIT }}
           # buf-breaking tries to compare HEAD against merge base so we need to be able to find it
           fetch-depth: 100
+
+      - name: Configure access to private Go dependencies
+        if: ${{ !inputs.run_single_functional_test && !inputs.run_single_unit_test }}
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@v5
         if: ${{ !inputs.run_single_functional_test && !inputs.run_single_unit_test }}
@@ -229,10 +267,20 @@ jobs:
     needs: [pre-build, set-up-single-test]
     runs-on: ubuntu-latest
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@v5
         with:
@@ -319,10 +367,20 @@ jobs:
     needs: [pre-build, set-up-single-test]
     runs-on: ubuntu-latest
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Start containerized dependencies
         uses: hoverkraft-tech/compose-action@v2.0.1
@@ -476,6 +534,13 @@ jobs:
       PERSISTENCE_DRIVER: ${{ matrix.persistence_driver }}
       TEST_TIMEOUT: ${{ needs.set-up-single-test.outputs.test_timeout }}
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: ScribeMD/docker-cache@0.3.7
         if: ${{ inputs.run_single_functional_test != true || (inputs.run_single_functional_test == true && contains(fromJSON(needs.set-up-single-test.outputs.dbs), env.PERSISTENCE_DRIVER)) }}
         with:
@@ -486,6 +551,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        if: ${{ inputs.run_single_functional_test != true || (inputs.run_single_functional_test == true && contains(fromJSON(needs.set-up-single-test.outputs.dbs), env.PERSISTENCE_DRIVER)) }}
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Start containerized dependencies
         if: ${{ toJson(matrix.containers) != '[]' && (inputs.run_single_functional_test != true || (inputs.run_single_functional_test == true && contains(fromJSON(needs.set-up-single-test.outputs.dbs), env.PERSISTENCE_DRIVER))) }}
@@ -643,10 +712,21 @@ jobs:
       PERSISTENCE_DRIVER: ${{ matrix.persistence_driver }}
       TEST_PARALLEL_FLAGS: ${{ matrix.parallel_flags }}
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
       # Resolve the numeric job ID for this job instance.
       # IMPORTANT: `job_name` must exactly match the job's display name above.
       - name: Get job ID
@@ -804,10 +884,21 @@ jobs:
       PERSISTENCE_DRIVER: ${{ matrix.persistence_driver }}
       ES_VERSION: ${{ matrix.es_version }}
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.COMMIT }}
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
       # Resolve the numeric job ID for this job instance.
       # IMPORTANT: `job_name` must exactly match the job's display name above.
       - name: Get job ID
