@@ -3,6 +3,9 @@ on:
   pull_request:
 permissions:
   contents: read
+  id-token: write # Required for dd-octo-sts OIDC token exchange (private Go deps).
+env:
+  GOPRIVATE: github.com/DataDog/*
 jobs:
   lint-actions:
     runs-on: ubuntu-24.04-arm
@@ -69,9 +72,19 @@ jobs:
   lint-workflows:
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@v6
         with:
@@ -115,9 +128,19 @@ jobs:
   parallelize-tests:
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@v6
         with:
@@ -141,9 +164,19 @@ jobs:
   golangci:
     runs-on: ubuntu-24.04-arm
     steps:
+      - name: Generate token for private Go deps
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-elastic
+          policy: temporal-server.dd-ci
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Configure access to private Go dependencies
+        run: git config --global url."https://x-access-token:${{ steps.octo-sts.outputs.token }}@github.com/".insteadOf "https://github.com/"
 
       - uses: actions/setup-go@v6
         with:
