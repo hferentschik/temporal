@@ -124,6 +124,7 @@ type (
 		ClientFactoryProvider client.FactoryProvider
 		DynamicConfigClient   dynamicconfig.Client
 		TLSConfigProvider     encryption.TLSConfigProvider
+		EsConfig              *esclient.Config
 		EsClient              esclient.Client
 		MetricsHandler        metrics.Handler
 	}
@@ -311,6 +312,7 @@ func ServerOptionsProvider(opts []ServerOption) (serverOptionsProvider, error) {
 		ClientFactoryProvider: clientFactoryProvider,
 		DynamicConfigClient:   dcClient,
 		TLSConfigProvider:     tlsConfigProvider,
+		EsConfig:              esConfig,
 		EsClient:              esClient,
 		MetricsHandler:        metricHandler,
 	}, nil
