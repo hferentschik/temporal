@@ -39,8 +39,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -112,7 +110,7 @@ func (s *historyArchiverSuite) SetupTest() {
 func setupFsEmulation(s3cli *Mocks3Client) {
 	fs := make(map[string][]byte)
 
-	putObjectFn := func(_ context.Context, input *s3.PutObjectInput, _ ...request.Option) (*s3.PutObjectOutput, error) {
+	putObjectFn := func(_ context.Context, input *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 		buf := new(bytes.Buffer)
 		if _, err := buf.ReadFrom(input.Body); err != nil {
 			return nil, err
@@ -122,7 +120,7 @@ func setupFsEmulation(s3cli *Mocks3Client) {
 	}
 
 	s3cli.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, input *s3.ListObjectsV2Input, opts ...request.Option) (*s3.ListObjectsV2Output, error) {
+		func(_ context.Context, input *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
 			objects := make([]types.Object, 0)
 			commonPrefixMap := map[string]bool{}
 			for k := range fs {
@@ -202,17 +200,17 @@ func setupFsEmulation(s3cli *Mocks3Client) {
 	s3cli.EXPECT().PutObject(gomock.Any(), gomock.Any()).DoAndReturn(putObjectFn).AnyTimes()
 
 	s3cli.EXPECT().HeadObject(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, input *s3.HeadObjectInput, options ...request.Option) (*s3.HeadObjectOutput, error) {
+		func(ctx context.Context, input *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			_, ok := fs[*input.Bucket+*input.Key]
 			if !ok {
-				return nil, awserr.New("NotFound", "", nil)
+				return nil, &types.NoSuchKey{}
 			}
 
 			return &s3.HeadObjectOutput{}, nil
 		}).AnyTimes()
 
 	s3cli.EXPECT().GetObject(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, input *s3.GetObjectInput, options ...request.Option) (*s3.GetObjectOutput, error) {
+		func(ctx context.Context, input *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 			_, ok := fs[*input.Bucket+*input.Key]
 			if !ok {
 				return nil, &types.NoSuchKey{}
@@ -248,9 +246,9 @@ func (s *historyArchiverSuite) TestValidateURI() {
 	}
 
 	s.s3cli.EXPECT().HeadBucket(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, input *s3.HeadBucketInput, options ...request.Option) (*s3.HeadBucketOutput, error) {
+		func(ctx context.Context, input *s3.HeadBucketInput, optFns ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
 			if *input.Bucket != s.testArchivalURI.Hostname() {
-				return nil, awserr.New("NotFound", "", nil)
+				return nil, &types.NoSuchBucket{}
 			}
 
 			return &s3.HeadBucketOutput{}, nil

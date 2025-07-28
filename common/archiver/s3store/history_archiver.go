@@ -30,16 +30,17 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"go.temporal.io/api/serviceerror"
 
 	archiverspb "go.temporal.io/server/api/archiver/v1"
@@ -401,23 +402,27 @@ func isRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if aerr, ok := err.(awserr.Error); ok {
-		return isStatusCodeRetryable(aerr) || request.IsErrorRetryable(aerr) || request.IsErrorThrottle(aerr)
-	}
-	return false
-}
-
-func isStatusCodeRetryable(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok {
-		if rerr, ok := err.(awserr.RequestFailure); ok {
-			if rerr.StatusCode() == 429 {
-				return true
-			}
-			if rerr.StatusCode() >= 500 && rerr.StatusCode() != 501 {
-				return true
-			}
+	
+	// Check for HTTP status code-based retryability
+	var responseError *smithyhttp.ResponseError
+	if errors.As(err, &responseError) {
+		statusCode := responseError.HTTPStatusCode()
+		// Retry on 429 (throttling) and 5xx errors (except 501)
+		if statusCode == http.StatusTooManyRequests || (statusCode >= 500 && statusCode != 501) {
+			return true
 		}
-		return isStatusCodeRetryable(aerr.OrigErr())
 	}
+	
+	// Check for specific AWS error types that are retryable
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case "Throttling", "ThrottlingException", "RequestThrottled":
+			return true
+		case "InternalError", "ServiceUnavailable", "RequestTimeout":
+			return true
+		}
+	}
+	
 	return false
 }
