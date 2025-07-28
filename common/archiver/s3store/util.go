@@ -30,22 +30,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"google.golang.org/protobuf/proto"
 	"io"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	commonpb "go.temporal.io/api/common/v1"
-	historypb "go.temporal.io/api/history/v1"
+	"github.com/aws/smithy-go"
 	"go.temporal.io/api/serviceerror"
-	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.uber.org/multierr"
+	"google.golang.org/protobuf/proto"
 
 	archiverspb "go.temporal.io/server/api/archiver/v1"
+	commonpb "go.temporal.io/api/common/v1"
+	historypb "go.temporal.io/api/history/v1"
+	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/server/common/archiver"
 	"go.temporal.io/server/common/codec"
 	"go.temporal.io/server/common/searchattribute"
@@ -132,8 +132,20 @@ func KeyExists(ctx context.Context, s3cli s3Client, URI archiver.URI, key string
 }
 
 func IsNotFoundError(err error) bool {
-	aerr, ok := err.(awserr.Error)
-	return ok && (aerr.Code() == "NotFound")
+	// Check for specific S3 error types first
+	var noSuchKey *types.NoSuchKey
+	var noSuchBucket *types.NoSuchBucket
+	if errors.As(err, &noSuchKey) || errors.As(err, &noSuchBucket) {
+		return true
+	}
+	
+	// Check for generic API errors with NotFound code
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "NotFound"
+	}
+	
+	return false
 }
 
 // Key construction

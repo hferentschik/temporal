@@ -333,7 +333,7 @@ func (v *visibilityArchiver) queryPrefix(
 	results, err := v.s3cli.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket:            aws.String(uri.Hostname()),
 		Prefix:            aws.String(prefix),
-		MaxKeys:           int32(request.pageSize),
+		MaxKeys:           aws.Int32(int32(request.pageSize)),
 		ContinuationToken: token,
 	})
 	if err != nil {
@@ -347,7 +347,7 @@ func (v *visibilityArchiver) queryPrefix(
 	}
 
 	response := &archiver.QueryVisibilityResponse{}
-	if results.IsTruncated {
+	if results.IsTruncated != nil && *results.IsTruncated {
 		response.NextPageToken = serializeQueryVisibilityToken(*results.NextContinuationToken)
 	}
 	for _, item := range results.Contents {
