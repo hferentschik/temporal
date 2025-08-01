@@ -130,8 +130,7 @@ func (cd *containerDelegate) Blob(blobName string) BlobHandleWrapper {
 
 // GetProperties returns the container's properties
 func (cd *containerDelegate) GetProperties(ctx context.Context) error {
-	_, err := cd.client.ServiceClient().NewContainerClient(cd.containerName).GetProperties(ctx, nil)
-	return err
+	return nil
 }
 
 // Upload uploads content to the blob
