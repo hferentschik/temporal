@@ -116,7 +116,7 @@ func (mr *MockClientMockRecorder) QueryWithFilters(ctx, URI, fileNamePrefix, pag
 func (m *MockClient) Upload(ctx context.Context, URI archiver.URI, fileName string, file []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upload", ctx, URI, fileName, file)
-	ret0, _ := ret[1].(error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 

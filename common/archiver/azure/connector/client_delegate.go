@@ -6,12 +6,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
-	"google.golang.org/appengine/log"
 )
 
 type (
@@ -95,10 +95,11 @@ func newDefaultClientDelegateWithConfig(ctx context.Context, config *Config) (*c
 
 // newClientDelegateWithConfig creates a new Azure client similar to temporal-large-payload-codec pattern
 func newClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDelegate, error) {
-	log.Infof(ctx, "newClientDelegateWithConfig::Creating Azure Blob Storage client with account name: %s and tenant: %s", config.AccountName, config.TenantID)
+
+	log.Printf("newClientDelegateWithConfig::Creating Azure Blob Storage client with account name: %s and tenant: %s", config.AccountName, config.TenantID)
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net/", config.AccountName)
 	// Use azidentity.NewDefaultAzureCredential() like temporal-large-payload-codec
-	log.Infof(ctx, "newClientDelegateWithConfig::Creating Azure credential with tenant ID: %s", config.TenantID)
+	log.Printf("newClientDelegateWithConfig::Creating Azure credential with tenant ID: %s", config.TenantID)
 	cred, err := azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{
 		TenantID: config.TenantID,
 	})
@@ -106,7 +107,7 @@ func newClientDelegateWithConfig(ctx context.Context, config *Config) (*clientDe
 		return nil, fmt.Errorf("unable to create azure credential: %w", err)
 	}
 
-	log.Infof(ctx, "newClientDelegateWithConfig::Creating Azure Blob Storage client for service URL: %s", serviceURL)
+	log.Printf("newClientDelegateWithConfig::Creating Azure Blob Storage client for service URL: %s", serviceURL)
 	// Create client using new Azure SDK like temporal-large-payload-codec
 	client, err := azblob.NewClient(serviceURL, cred, nil)
 	if err != nil {
