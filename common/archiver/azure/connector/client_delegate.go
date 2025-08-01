@@ -70,10 +70,10 @@ func newDefaultClientDelegateWithConfig(ctx context.Context, config *Config) (*c
 
 	// 2. Second priority: Environment variables as fallback
 	if accountName == "" {
-		accountName = os.LookupEnv("AZURE_STORAGE_ACCOUNT_NAME")
+		accountName, _ = os.LookupEnv("AZURE_STORAGE_ACCOUNT_NAME")
 	}
 	if tenantID == "" {
-		tenantID = os.LookupEnv("AZURE_TENANT_ID")
+		tenantID, _ = os.LookupEnv("AZURE_TENANT_ID")
 	}
 
 	// 3. Validate that we have the required values
