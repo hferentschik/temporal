@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -130,6 +131,27 @@ func (cd *containerDelegate) Blob(blobName string) BlobHandleWrapper {
 
 // GetProperties returns the container's properties
 func (cd *containerDelegate) GetProperties(ctx context.Context) error {
+	markerBlobName := ".temporal-archiver-marker"
+
+	// First, try to get properties of the marker file to see if it exists
+	_, err := cd.client.ServiceClient().NewContainerClient(cd.containerName).NewBlobClient(markerBlobName).GetProperties(ctx, nil)
+	if err != nil {
+		// If blob doesn't exist, try to create it
+		if bloberror.HasCode(err, bloberror.BlobNotFound) {
+			markerContent := strings.NewReader("temporal-archiver-test")
+			_, uploadErr := cd.client.UploadStream(ctx, cd.containerName, markerBlobName, markerContent, nil)
+			if uploadErr != nil {
+				// Return upload error (could be permissions, container not found, etc.)
+				return uploadErr
+			}
+			// Successfully created marker file
+			return nil
+		}
+		// Return other errors (permissions, network, etc.)
+		return err
+	}
+
+	// Marker file exists, container is accessible
 	return nil
 }
 
