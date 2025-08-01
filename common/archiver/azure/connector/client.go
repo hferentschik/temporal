@@ -6,11 +6,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
+
 	"go.temporal.io/server/common/archiver"
 	"go.temporal.io/server/common/config"
 )
@@ -47,7 +46,7 @@ type (
 // Authentication supports config values with environment variable fallback
 func NewClient(ctx context.Context, config *config.AzblobArchiver) (Client, error) {
 	var azureConfig *Config
-	
+
 	// Create azure config from temporalite config if provided
 	if config != nil && config.RegionName != "" {
 		azureConfig = &Config{
@@ -55,7 +54,7 @@ func NewClient(ctx context.Context, config *config.AzblobArchiver) (Client, erro
 			TenantID:    config.TenantID,
 		}
 	}
-	
+
 	// Use config-based authentication with environment variable fallback
 	clientDelegate, err := newDefaultClientDelegateWithConfig(ctx, azureConfig)
 	return &storageWrapper{client: clientDelegate}, err
@@ -134,7 +133,7 @@ func (s *storageWrapper) Query(ctx context.Context, URI archiver.URI, fileNamePr
 }
 
 // QueryWithFilters retrieves blob names that match filter parameters. PageSize is optional, 0 means all records.
-// TODO: This needs to be implemented with the new Azure SDK  
+// TODO: This needs to be implemented with the new Azure SDK
 // For now, return an error indicating this functionality needs to be implemented
 func (s *storageWrapper) QueryWithFilters(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize, offset int, filters []Precondition) ([]string, bool, int, error) {
 	return nil, false, 0, errors.New("QueryWithFilters functionality needs to be implemented with new Azure SDK")
