@@ -25,6 +25,8 @@
 package visibility
 
 import (
+	"fmt"
+
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/log"
@@ -73,6 +75,7 @@ func NewManager(
 	metricsHandler metrics.Handler,
 	logger log.Logger,
 ) (manager.VisibilityManager, error) {
+	logger.Info("GetVisibilityStoreConfig", tag.NewStringTag("config", fmt.Sprintf("%v", persistenceCfg.GetVisibilityStoreConfig())))
 	visibilityManager, err := newVisibilityManagerFromDataStoreConfig(
 		persistenceCfg.GetVisibilityStoreConfig(),
 		persistenceResolver,
