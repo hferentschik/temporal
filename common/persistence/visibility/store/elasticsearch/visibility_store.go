@@ -42,6 +42,7 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/server/common/log/tag"
 
 	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/log"
@@ -149,6 +150,7 @@ func NewVisibilityStore(
 			return nil, fmt.Errorf("unable to create AWS HTTP client for Elasticsearch: %w", err)
 		}
 	}
+	logger.Info("HTTP client type", tag.NewStringTag("type", fmt.Sprintf("%T", esHttpClient.Transport)))
 	esClient, err := client.NewClient(cfg, esHttpClient, logger)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Elasticsearch client (URL = %v, username = %q): %w",
