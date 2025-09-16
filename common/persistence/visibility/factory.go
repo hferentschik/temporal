@@ -75,7 +75,11 @@ func NewManager(
 	metricsHandler metrics.Handler,
 	logger log.Logger,
 ) (manager.VisibilityManager, error) {
-	logger.Info("GetVisibilityStoreConfig", tag.NewStringTag("config", fmt.Sprintf("%v", persistenceCfg.GetVisibilityStoreConfig())))
+	psConfig := persistenceCfg.GetVisibilityStoreConfig()
+	logger.Info("GetVisibilityStoreConfig", tag.NewStringTag("config", fmt.Sprintf("%v", psConfig)))
+	if psConfig.Elasticsearch != nil {
+		logger.Info("ElasticsearchConfig", tag.NewStringTag("config", fmt.Sprintf("%v", psConfig.Elasticsearch)))
+	}
 	visibilityManager, err := newVisibilityManagerFromDataStoreConfig(
 		persistenceCfg.GetVisibilityStoreConfig(),
 		persistenceResolver,
