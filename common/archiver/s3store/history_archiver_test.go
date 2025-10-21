@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -50,7 +50,7 @@ var testBranchToken = []byte{1, 2, 3}
 type historyArchiverSuite struct {
 	*require.Assertions
 	suite.Suite
-	s3cli              *mocks.MockS3API
+	s3cli              *Mocks3Client
 	executionManager   persistence.ExecutionManager
 	logger             log.Logger
 	metricsHandler     metrics.Handler

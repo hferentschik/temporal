@@ -9,13 +9,13 @@ retract (
 
 require (
 	cloud.google.com/go/storage v1.51.0
+	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/aws/aws-sdk-go v1.55.6
 	github.com/aws/aws-sdk-go-v2 v1.36.6
 	github.com/aws/aws-sdk-go-v2/config v1.29.18
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.71
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.83.0
 	github.com/aws/smithy-go v1.22.5
-	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/aws/aws-sdk-go v1.55.6
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cactus/go-statsd-client/v5 v5.1.0
 	github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da
@@ -57,14 +57,14 @@ require (
 	github.com/urfave/cli v1.22.16
 	github.com/urfave/cli/v2 v2.27.5
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0
-	go.opentelemetry.io/otel v1.34.0
+	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.56.0
-	go.opentelemetry.io/otel/metric v1.34.0
-	go.opentelemetry.io/otel/sdk v1.34.0
+	go.opentelemetry.io/otel/metric v1.35.0
+	go.opentelemetry.io/otel/sdk v1.35.0
 	go.opentelemetry.io/otel/sdk/metric v1.34.0
-	go.opentelemetry.io/otel/trace v1.34.0
+	go.opentelemetry.io/otel/trace v1.35.0
 	go.temporal.io/api v1.50.1
 	go.temporal.io/sdk v1.34.0
 	go.temporal.io/version v0.3.0
@@ -99,8 +99,9 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.27.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.51.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.51.0 // indirect
-	github.com/apache/thrift v0.16.0 // indirect
-	github.com/aws/aws-sdk-go v1.43.21 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.3.0 // indirect
+	github.com/apache/thrift v0.21.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.11 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.33 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.37 // indirect
@@ -114,10 +115,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1 // indirect
-	github.com/benbjohnson/clock v1.1.0 // indirect
-	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.3.0 // indirect
-	github.com/apache/thrift v0.21.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cactus/go-statsd-client/statsd v0.0.0-20200423205355-cb0885a1018c // indirect
@@ -134,7 +131,6 @@ require (
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
