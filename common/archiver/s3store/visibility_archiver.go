@@ -24,7 +24,7 @@ type (
 	visibilityArchiver struct {
 		logger         log.Logger
 		metricsHandler metrics.Handler
-		s3cli          s3iface.S3API
+		s3cli          s3Client
 		queryParser    QueryParser
 	}
 
@@ -77,7 +77,7 @@ func newVisibilityArchiver(
 	return &visibilityArchiver{
 		logger:         logger,
 		metricsHandler: metricsHandler,
-		s3cli:          s3.New(sess),
+		s3cli:          s3cli,
 		queryParser:    NewQueryParser(),
 	}, nil
 }

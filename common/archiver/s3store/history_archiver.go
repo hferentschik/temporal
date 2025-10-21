@@ -49,7 +49,7 @@ type (
 		executionManager persistence.ExecutionManager
 		logger           log.Logger
 		metricsHandler   metrics.Handler
-		s3cli            s3iface.S3API
+		s3cli            s3Client
 		// only set in test code
 		historyIterator archiver.HistoryIterator
 	}
@@ -103,7 +103,7 @@ func newHistoryArchiver(
 		executionManager: executionManager,
 		logger:           logger,
 		metricsHandler:   metricsHandler,
-		s3cli:            s3.New(sess),
+		s3cli:            s3cli,
 		historyIterator:  historyIterator,
 	}, nil
 }
