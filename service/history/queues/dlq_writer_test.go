@@ -193,7 +193,6 @@ func TestDLQWriter_ConcurrentWrites(t *testing.T) {
 				"target-cluster",
 				1, // same shard ID
 				task,
-				true,
 			)
 			require.NoError(t, err)
 			return nil
@@ -266,7 +265,6 @@ func TestDLQWriter_ConcurrentWritesDifferentQueues(t *testing.T) {
 				targetCluster,
 				1,
 				task,
-				true,
 			)
 			require.NoError(t, err)
 			return nil
