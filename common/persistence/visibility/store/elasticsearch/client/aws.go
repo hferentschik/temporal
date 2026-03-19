@@ -10,8 +10,33 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	v1credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	elasticaws "github.com/olivere/elastic/v7/aws/v4"
 )
+
+// v2ToV1CredentialsProvider adapts an AWS SDK v2 CredentialsProvider to the v1 Provider interface
+// required by olivere/elastic's V4 signing client.
+type v2ToV1CredentialsProvider struct {
+	provider aws.CredentialsProvider
+	ctx      context.Context
+}
+
+func (p *v2ToV1CredentialsProvider) Retrieve() (v1credentials.Value, error) {
+	creds, err := p.provider.Retrieve(p.ctx)
+	if err != nil {
+		return v1credentials.Value{}, err
+	}
+	return v1credentials.Value{
+		AccessKeyID:     creds.AccessKeyID,
+		SecretAccessKey: creds.SecretAccessKey,
+		SessionToken:    creds.SessionToken,
+		ProviderName:    creds.Source,
+	}, nil
+}
+
+func (p *v2ToV1CredentialsProvider) IsExpired() bool {
+	return false
+}
 
 func NewAwsHttpClient(config ESAWSRequestSigningConfig) (*http.Client, error) {
 	if !config.Enabled {
@@ -47,5 +72,9 @@ func NewAwsHttpClient(config ESAWSRequestSigningConfig) (*http.Client, error) {
 		return nil, fmt.Errorf("unknown AWS credential provider specified: %+v. Accepted options are 'static', 'environment' or 'aws-sdk-default'", config.CredentialProvider)
 	}
 
-	return elasticaws.NewV4SigningClient(credentialsProvider, config.Region), nil
+	v1Creds := v1credentials.NewCredentials(&v2ToV1CredentialsProvider{
+		provider: credentialsProvider,
+		ctx:      ctx,
+	})
+	return elasticaws.NewV4SigningClient(v1Creds, config.Region), nil
 }
