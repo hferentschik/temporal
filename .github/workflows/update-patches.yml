@@ -1,0 +1,186 @@
+name: Update Patches on dd-main
+
+# Regenerates the DD patch files on dd-main from a resolved backport branch and
+# opens a PR against dd-main with the updated patch files.
+#
+# Triggered automatically when a PR labelled 'needs-manual-patching' is merged
+# into a dd-dev-v* branch.  The PR head branch must follow the naming convention
+# 'backport/<upstream-tag>' (e.g. backport/v1.30.4).
+#
+# Also supports manual dispatch for testing or re-running:
+#
+#   gh workflow run update-patches.yml --ref dd-main \
+#     --field backport_branch=backport/v1.30.4
+#
+#   gh workflow run update-patches.yml --ref dd-main \
+#     --field backport_branch=backport/v1.30.4 \
+#     --field upstream_tag=v1.30.4
+#
+# What this workflow does:
+#   1. Checks out dd-main (patches/ + scripts/ live here).
+#   2. Fetches all remote branches and tags so the backport branch is available.
+#   3. Runs scripts/update-patches.sh to regenerate patch files from the backport branch.
+#   4. If any patch file changed, commits the updates and opens a PR against dd-main.
+#   5. If nothing changed (patches already match), exits cleanly with no PR.
+#
+# The PR to dd-main should be reviewed and merged after the dd-dev-v* PR is
+# confirmed working.  Once merged, future runs of Create Datadog Dev Branch
+# will use the updated patches.
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - 'dd-dev-v*'
+
+  workflow_dispatch:
+    inputs:
+      backport_branch:
+        description: 'Resolved backport branch (e.g. backport/v1.30.4)'
+        required: true
+      upstream_tag:
+        description: 'Upstream base tag (e.g. v1.30.4). Auto-derived from branch name if empty.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write # Required for dd-octo-sts OIDC token exchange.
+
+jobs:
+  update-patches:
+    name: Regenerate patches from ${{ github.event.pull_request.head.ref || inputs.backport_branch }}
+    runs-on: ubuntu-latest
+
+    # For pull_request trigger: only run when the PR was merged AND had the
+    # needs-manual-patching label.  Clean-apply PRs do not need patch updates.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'needs-manual-patching'))
+
+    steps:
+      - name: Generate token
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-server
+          policy: self.dd-automation
+
+      - name: Determine backport branch and upstream tag
+        id: params
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          WD_BACKPORT:  ${{ inputs.backport_branch }}
+          WD_TAG:       ${{ inputs.upstream_tag }}
+        run: |
+          if [[ -n "${WD_BACKPORT}" ]]; then
+            BACKPORT_BRANCH="${WD_BACKPORT}"
+          else
+            BACKPORT_BRANCH="${PR_HEAD_REF}"
+          fi
+
+          if [[ -n "${WD_TAG}" ]]; then
+            UPSTREAM_TAG="${WD_TAG}"
+          else
+            # Derive from branch name: backport/v1.30.4 → v1.30.4
+            UPSTREAM_TAG="${BACKPORT_BRANCH#backport/}"
+          fi
+
+          if [[ -z "${UPSTREAM_TAG}" || "${UPSTREAM_TAG}" == "${BACKPORT_BRANCH}" ]]; then
+            echo "::error::Cannot derive upstream tag from '${BACKPORT_BRANCH}'. Use upstream_tag input." >&2
+            exit 1
+          fi
+
+          echo "backport_branch=${BACKPORT_BRANCH}" >> "${GITHUB_OUTPUT}"
+          echo "upstream_tag=${UPSTREAM_TAG}"       >> "${GITHUB_OUTPUT}"
+          echo "Backport branch: ${BACKPORT_BRANCH}"
+          echo "Upstream tag:    ${UPSTREAM_TAG}"
+
+      - name: Checkout dd-main
+        uses: actions/checkout@v6
+        with:
+          ref: dd-main
+          fetch-depth: 0
+          token: ${{ steps.octo-sts.outputs.token }}
+
+      - name: Fetch all branches and tags
+        run: git fetch --all --tags --quiet
+
+      - name: Regenerate patches from backport branch
+        id: regen
+        env:
+          BACKPORT_BRANCH: ${{ steps.params.outputs.backport_branch }}
+          UPSTREAM_TAG:    ${{ steps.params.outputs.upstream_tag }}
+        run: |
+          chmod +x scripts/update-patches.sh
+          scripts/update-patches.sh "${UPSTREAM_TAG}" \
+            --backport-branch "${BACKPORT_BRANCH}" \
+            --patches-dir     patches/ \
+            --apply
+
+          if git diff --quiet patches/; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "No patch changes detected — dd-main is already up to date."
+          else
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+            echo "Patch changes detected:"
+            git diff --stat patches/
+          fi
+
+      - name: Open PR with updated patches
+        if: steps.regen.outputs.changed == 'true'
+        env:
+          GH_TOKEN:        ${{ steps.octo-sts.outputs.token }}
+          UPSTREAM_TAG:    ${{ steps.params.outputs.upstream_tag }}
+          BACKPORT_BRANCH: ${{ steps.params.outputs.backport_branch }}
+          REPO:            ${{ github.repository }}
+          RUN_URL:         ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name  'Temporal CICD'
+          git config user.email 'temporal-cicd[bot]@users.noreply.github.com'
+
+          UPDATE_BRANCH="automation/update-patches-${UPSTREAM_TAG}"
+
+          # Remove the branch if it already exists from a previous run.
+          git push origin ":${UPDATE_BRANCH}" 2>/dev/null || true
+          git checkout -b "${UPDATE_BRANCH}"
+
+          # Capture diff stat before staging (git diff shows unstaged vs index).
+          PATCH_STAT="$(git diff --stat patches/)"
+
+          git add patches/
+          git commit -m "Update patches after ${UPSTREAM_TAG} conflict resolution"
+          git push origin "${UPDATE_BRANCH}"
+
+          gh pr create --repo "${REPO}" \
+            --title "Update patches after ${UPSTREAM_TAG} conflict resolution" \
+            --base  "dd-main" \
+            --head  "${UPDATE_BRANCH}" \
+            --body "$(cat <<EOF
+          ## Updated patches after \`${UPSTREAM_TAG}\` conflict resolution
+
+          Regenerated from the resolved [\`${BACKPORT_BRANCH}\`](https://github.com/${REPO}/tree/${BACKPORT_BRANCH})
+          branch. These patch files replace the versions that conflicted when applying to \`${UPSTREAM_TAG}\`.
+
+          Once merged, future runs of **Create Datadog Dev Branch** will use these updated patches for
+          all subsequent upstream versions.
+
+          ### Changed files
+
+          \`\`\`
+          ${PATCH_STAT}
+          \`\`\`
+
+          ### Review checklist
+
+          - [ ] Each changed patch still references its Jira ticket in the Subject line (\`[WFENG-XXXX]\`)
+          - [ ] The resolved diffs reflect the intent of the original patch, adapted to the new upstream
+          - [ ] No unrelated changes were introduced during conflict resolution
+          - [ ] \`patches/series\` order and entries are still correct
+          - [ ] Verify the updated patches apply cleanly to the next upstream version after \`${UPSTREAM_TAG}\`
+
+          > Generated by the [Update Patches on dd-main](${RUN_URL}) workflow from \`${BACKPORT_BRANCH}\`.
+          EOF
+          )"
