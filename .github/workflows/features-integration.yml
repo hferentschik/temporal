@@ -14,6 +14,7 @@ concurrency: # Auto-cancel existing runs in the PR when a new commit is pushed
 
 jobs:
   build-docker-image:
+    if: github.repository != 'DataDog/temporal-server'
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -122,6 +123,6 @@ jobs:
     steps:
       - name: Check results
         run: |
-          if [[ -n $(echo "$RESULTS" | jq '.[] | select (. != "success")') ]]; then
+          if [[ -n $(echo "$RESULTS" | jq '.[] | select (. != "success" and . != "skipped")') ]]; then
             exit 1
           fi

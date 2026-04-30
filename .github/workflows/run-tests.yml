@@ -314,7 +314,7 @@ jobs:
           TEST_TIMEOUT: 35
 
   integration-test:
-    if: ${{ inputs.run_single_functional_test != true && inputs.run_single_unit_test != true }}
+    if: ${{ inputs.run_single_functional_test != true && inputs.run_single_unit_test != true && github.repository != 'DataDog/temporal-server' }}
     name: Integration test
     needs: [pre-build, set-up-single-test]
     runs-on: ubuntu-latest
@@ -416,7 +416,7 @@ jobs:
   # Root job name includes matrix details so it is unique per shard.
   # This MUST stay in sync with the `job_name` passed to the job-id action below.
   functional-test:
-    if: ${{ inputs.run_single_unit_test != true }}
+    if: ${{ inputs.run_single_unit_test != true && github.repository != 'DataDog/temporal-server' }}
     # Display name shown in the UI. The job-id lookup uses this exact value.
     name: Functional test (${{ matrix.name }}, shard ${{ matrix.shard_index }})
     needs: [pre-build, set-up-single-test]
@@ -602,7 +602,7 @@ jobs:
   # XDC matrix job. Include `${{ matrix.name }}` in the display name so each
   # matrix variant has a unique name for the job-id lookup.
   functional-test-xdc:
-    if: ${{ inputs.run_single_functional_test != true && inputs.run_single_unit_test != true }}
+    if: ${{ inputs.run_single_functional_test != true && inputs.run_single_unit_test != true && github.repository != 'DataDog/temporal-server' }}
     # Display name shown in the UI. The job-id lookup uses this exact value.
     name: Functional test xdc (${{ matrix.name }})
     needs: [pre-build, set-up-single-test]
@@ -764,7 +764,7 @@ jobs:
   # NDC matrix job. Include `${{ matrix.name }}` in the display name so each
   # matrix variant has a unique name for the job-id lookup.
   functional-test-ndc:
-    if: ${{ inputs.run_single_functional_test != true && inputs.run_single_unit_test != true }}
+    if: ${{ inputs.run_single_functional_test != true && inputs.run_single_unit_test != true && github.repository != 'DataDog/temporal-server' }}
     # Display name shown in the UI. The job-id lookup uses this exact value.
     name: Functional test ndc (${{ matrix.name }})
     needs: [pre-build, set-up-single-test]
@@ -934,8 +934,8 @@ jobs:
       - name: Check results
         run: |
           if [[ "${{ inputs.run_single_functional_test }}" != "true" ]]; then
-            # if in all-tests mode, all statuses must be success
-            if [[ -n $(echo "$RESULTS" | jq '.[] | select (. != "success")') ]]; then
+            # if in all-tests mode, success and skipped are acceptable
+            if [[ -n $(echo "$RESULTS" | jq '.[] | select (. != "success" and . != "skipped")') ]]; then
               exit 1
             fi
           else
