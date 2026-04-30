@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   build-docker:
+    if: github.repository != 'DataDog/temporal-server'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
