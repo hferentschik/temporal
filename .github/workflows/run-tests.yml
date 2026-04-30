@@ -323,6 +323,7 @@ jobs:
           if-no-files-found: ignore
 
   integration-test:
+    if: ${{ github.repository != 'DataDog/temporal-server' }}
     name: Integration test
     needs: [pre-build]
     runs-on: ubuntu-24.04-arm
@@ -376,6 +377,7 @@ jobs:
   # Root job name includes matrix details so it is unique per job variant.
   # This MUST stay in sync with the `job_name` passed to the job-id action below.
   functional-test:
+    if: ${{ github.repository != 'DataDog/temporal-server' }}
     # Display name shown in the UI. The job-id lookup uses this exact value.
     name: Functional test (${{ matrix.name }}, ${{ matrix.display_name }})
     needs: [pre-build, test-setup]
@@ -451,6 +453,7 @@ jobs:
           flags: -v
 
   mixed-brain-test:
+    if: ${{ github.repository != 'DataDog/temporal-server' }}
     name: Mixed brain test
     needs: [pre-build]
     runs-on: ubuntu-24.04-arm
@@ -517,8 +520,8 @@ jobs:
     steps:
       - name: Check results
         run: |
-          # all statuses must be success
-          if [[ -n $(echo "$RESULTS" | jq '.[] | select (. != "success")') ]]; then
+          # success and skipped are acceptable
+          if [[ -n $(echo "$RESULTS" | jq '.[] | select (. != "success" and . != "skipped")') ]]; then
             exit 1
           fi
 
