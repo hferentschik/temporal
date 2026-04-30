@@ -1,0 +1,356 @@
+name: Update Patches on dd-main
+
+# Updates the DD patch files on dd-main after changes to a dd-dev-v* branch.
+# Two modes depending on the PR label:
+#
+# 1. Conflict resolution (label: needs-manual-patching):
+#    Regenerates existing patch files from a resolved backport branch using
+#    scripts/update-patches.sh. The backport branch is the PR head branch
+#    (e.g. backport/v1.30.4).
+#
+# 2. New patch (label: new-patch):
+#    Extracts new commits as additional patch files using
+#    scripts/extract-new-patches.sh. The new commits are on the dd-dev-v*
+#    base branch after the PR is rebase-merged.
+#
+# Also supports manual dispatch:
+#
+#   # Conflict resolution:
+#   gh workflow run update-patches.yml --ref dd-main \
+#     --field mode=conflict-resolution \
+#     --field backport_branch=backport/v1.30.4
+#
+#   # New patch extraction:
+#   gh workflow run update-patches.yml --ref dd-main \
+#     --field mode=new-patch \
+#     --field source_branch=dd-dev-v1.29.6 \
+#     --field num_commits=1
+#
+# The PR to dd-main should be reviewed and merged after the dd-dev-v* change
+# is confirmed working. Once merged, future runs of Create Datadog Dev Branch
+# will use the updated patches.
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - 'dd-dev-v*'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Operation mode'
+        required: true
+        default: 'conflict-resolution'
+        type: choice
+        options:
+          - conflict-resolution
+          - new-patch
+      backport_branch:
+        description: 'Resolved backport branch (conflict-resolution mode, e.g. backport/v1.30.4)'
+        required: false
+        default: ''
+      source_branch:
+        description: 'dd-dev branch with new patches (new-patch mode, e.g. dd-dev-v1.29.6)'
+        required: false
+        default: ''
+      upstream_tag:
+        description: 'Upstream base tag (e.g. v1.30.4). Auto-derived from branch name if empty.'
+        required: false
+        default: ''
+      num_commits:
+        description: 'Number of new commits to extract (new-patch mode, required).'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write # Required for dd-octo-sts OIDC token exchange.
+
+jobs:
+  update-patches:
+    name: Update patches on dd-main
+    runs-on: ubuntu-latest
+
+    # For pull_request trigger: only run when the PR was merged AND had a
+    # recognized label (needs-manual-patching or new-patch).
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       (contains(github.event.pull_request.labels.*.name, 'needs-manual-patching') ||
+        contains(github.event.pull_request.labels.*.name, 'new-patch')))
+
+    steps:
+      - name: Generate token
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-server
+          policy: self.dd-automation
+
+      - name: Determine mode and parameters
+        id: params
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
+          WD_MODE: ${{ inputs.mode }}
+          WD_BACKPORT: ${{ inputs.backport_branch }}
+          WD_SOURCE: ${{ inputs.source_branch }}
+          WD_TAG: ${{ inputs.upstream_tag }}
+          WD_NUM: ${{ inputs.num_commits }}
+        run: |
+          # --- Determine mode ---
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            MODE="${WD_MODE}"
+          elif echo " ${PR_LABELS} " | grep -q ' new-patch '; then
+            MODE="new-patch"
+          elif echo " ${PR_LABELS} " | grep -q ' needs-manual-patching '; then
+            MODE="conflict-resolution"
+          else
+            echo "::error::No recognized label (needs-manual-patching or new-patch) found on PR."
+            exit 1
+          fi
+          echo "mode=${MODE}" >> "${GITHUB_OUTPUT}"
+
+          # --- Determine parameters based on mode ---
+          if [[ "${MODE}" == "new-patch" ]]; then
+            SOURCE_BRANCH="${WD_SOURCE:-${PR_BASE_REF}}"
+            UPSTREAM_TAG="${WD_TAG}"
+            if [[ -z "${UPSTREAM_TAG}" ]]; then
+              UPSTREAM_TAG="${SOURCE_BRANCH#dd-dev-}"
+            fi
+            NUM_COMMITS="${WD_NUM:-${PR_COMMITS}}"
+
+            if [[ -z "${SOURCE_BRANCH}" || -z "${NUM_COMMITS}" ]]; then
+              echo "::error::new-patch mode requires source_branch and num_commits."
+              exit 1
+            fi
+
+            {
+              echo "source_branch=${SOURCE_BRANCH}"
+              echo "upstream_tag=${UPSTREAM_TAG}"
+              echo "num_commits=${NUM_COMMITS}"
+            } >> "${GITHUB_OUTPUT}"
+            echo "Mode:          ${MODE}"
+            echo "Source branch: ${SOURCE_BRANCH}"
+            echo "Upstream tag:  ${UPSTREAM_TAG}"
+            echo "Num commits:   ${NUM_COMMITS}"
+
+          else
+            BACKPORT_BRANCH="${WD_BACKPORT:-${PR_HEAD_REF}}"
+            UPSTREAM_TAG="${WD_TAG}"
+            if [[ -z "${UPSTREAM_TAG}" ]]; then
+              UPSTREAM_TAG="${BACKPORT_BRANCH#backport/}"
+            fi
+
+            if [[ -z "${UPSTREAM_TAG}" || "${UPSTREAM_TAG}" == "${BACKPORT_BRANCH}" ]]; then
+              echo "::error::Cannot derive upstream tag from '${BACKPORT_BRANCH}'. Use upstream_tag input."
+              exit 1
+            fi
+
+            # For PR-triggered runs, use the head SHA as the git ref instead of
+            # the branch name. GitHub auto-deletes head branches on merge, so the
+            # branch may be gone by the time git fetch runs. The SHA is in the
+            # event payload and always resolves to the right commit.
+            if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+              BACKPORT_REF="${PR_HEAD_SHA}"
+            else
+              BACKPORT_REF="${BACKPORT_BRANCH}"
+            fi
+
+            {
+              echo "backport_branch=${BACKPORT_BRANCH}"
+              echo "backport_ref=${BACKPORT_REF}"
+              echo "upstream_tag=${UPSTREAM_TAG}"
+            } >> "${GITHUB_OUTPUT}"
+            echo "Mode:            ${MODE}"
+            echo "Backport branch: ${BACKPORT_BRANCH}"
+            echo "Backport ref:    ${BACKPORT_REF}"
+            echo "Upstream tag:    ${UPSTREAM_TAG}"
+          fi
+
+      - name: Checkout dd-main
+        uses: actions/checkout@v6
+        with:
+          ref: dd-main
+          fetch-depth: 0
+          token: ${{ steps.octo-sts.outputs.token }}
+
+      - name: Fetch all branches and tags
+        run: git fetch --all --tags --quiet
+
+      - name: Regenerate patches (conflict resolution)
+        if: steps.params.outputs.mode == 'conflict-resolution'
+        id: regen
+        env:
+          BACKPORT_BRANCH: ${{ steps.params.outputs.backport_branch }}
+          BACKPORT_REF: ${{ steps.params.outputs.backport_ref }}
+          UPSTREAM_TAG: ${{ steps.params.outputs.upstream_tag }}
+        run: |
+          chmod +x scripts/update-patches.sh
+          scripts/update-patches.sh "${UPSTREAM_TAG}" \
+            --backport-branch "${BACKPORT_REF}" \
+            --patches-dir     patches/ \
+            --apply
+
+      - name: Extract extra commits as new patches (conflict-resolution)
+        if: steps.params.outputs.mode == 'conflict-resolution'
+        env:
+          BACKPORT_REF: ${{ steps.params.outputs.backport_ref }}
+          UPSTREAM_TAG: ${{ steps.params.outputs.upstream_tag }}
+        run: |
+          # Count commits on the backport branch since the upstream tag.
+          commit_count=$(git rev-list --count "${UPSTREAM_TAG}..${BACKPORT_REF}")
+
+          # Count series entries (skip blank/comment/test lines), same logic as update-patches.sh.
+          series_count=0
+          while IFS= read -r line; do
+            entry="${line%%#*}"
+            entry="${entry#"${entry%%[![:space:]]*}"}"
+            entry="${entry%"${entry##*[![:space:]]}"}"
+            [[ -z "${entry}" ]] && continue
+            [[ "${entry}" == test-* ]] && continue
+            series_count=$((series_count + 1))
+          done < patches/series
+
+          extra=$((commit_count - series_count))
+
+          if [[ "${extra}" -le 0 ]]; then
+            echo "No extra commits beyond series (${commit_count} commits, ${series_count} series entries)."
+            exit 0
+          fi
+
+          echo "Found ${extra} extra commit(s) beyond series entries — extracting as new patches."
+          chmod +x scripts/extract-new-patches.sh
+          scripts/extract-new-patches.sh \
+            --source-ref   "${BACKPORT_REF}" \
+            --upstream-tag "${UPSTREAM_TAG}" \
+            --num-commits  "${extra}" \
+            --patches-dir  patches/
+
+      - name: Extract new patches (new-patch)
+        if: steps.params.outputs.mode == 'new-patch'
+        id: extract
+        env:
+          SOURCE_BRANCH: ${{ steps.params.outputs.source_branch }}
+          UPSTREAM_TAG: ${{ steps.params.outputs.upstream_tag }}
+          NUM_COMMITS: ${{ steps.params.outputs.num_commits }}
+        run: |
+          chmod +x scripts/extract-new-patches.sh
+          scripts/extract-new-patches.sh \
+            --source-ref  "origin/${SOURCE_BRANCH}" \
+            --upstream-tag "${UPSTREAM_TAG}" \
+            --num-commits  "${NUM_COMMITS}" \
+            --patches-dir  patches/
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet patches/ && \
+             git diff --quiet --cached patches/ && \
+             [[ -z "$(git ls-files --others --exclude-standard patches/)" ]]; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "No patch changes detected — dd-main is already up to date."
+          else
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+            echo "Patch changes detected:"
+            git diff --stat patches/
+            git ls-files --others --exclude-standard patches/
+          fi
+
+      - name: Open PR with updated patches
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.octo-sts.outputs.token }}
+          MODE: ${{ steps.params.outputs.mode }}
+          UPSTREAM_TAG: ${{ steps.params.outputs.upstream_tag }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Mode-specific (only one set is populated)
+          BACKPORT_BRANCH: ${{ steps.params.outputs.backport_branch }}
+          SOURCE_BRANCH: ${{ steps.params.outputs.source_branch }}
+          NUM_COMMITS: ${{ steps.params.outputs.num_commits }}
+        run: |
+          git config user.name  'Temporal CICD'
+          git config user.email 'temporal-cicd[bot]@users.noreply.github.com'
+
+          UPDATE_BRANCH="automation/update-patches-${UPSTREAM_TAG}"
+
+          # Remove the branch if it already exists from a previous run.
+          git push origin ":${UPDATE_BRANCH}" 2>/dev/null || true
+          git checkout -b "${UPDATE_BRANCH}"
+
+          # Stage all patch changes (including new untracked files).
+          git add patches/
+
+          PATCH_STAT="$(git diff --cached --stat patches/)"
+
+          if [[ "${MODE}" == "new-patch" ]]; then
+            TITLE="Add new patch(es) from ${UPSTREAM_TAG} to dd-main"
+            BODY="$(cat <<EOF
+          ## New patch(es) extracted from \`dd-dev-${UPSTREAM_TAG}\`
+
+          Extracted ${NUM_COMMITS} new commit(s) from [\`${SOURCE_BRANCH}\`](https://github.com/${REPO}/tree/${SOURCE_BRANCH})
+          as patch files for dd-main.
+
+          Once merged, future runs of **Create Datadog Dev Branch** will include these patches
+          for all subsequent upstream versions.
+
+          ### New files
+
+          \`\`\`
+          ${PATCH_STAT}
+          \`\`\`
+
+          ### Review checklist
+
+          - [ ] Each new patch references its Jira ticket in the Subject line (\`[WFENG-XXXX]\`)
+          - [ ] The patch content matches the commit on \`${SOURCE_BRANCH}\`
+          - [ ] \`patches/series\` entries are in the correct position and have appropriate comments
+          - [ ] Consider adding lifecycle annotations (CONFLICT-RISK, UPSTREAM-PR, SUNSET-AFTER)
+
+          > Generated by the [Update Patches on dd-main](${RUN_URL}) workflow (\`new-patch\` mode).
+          EOF
+          )"
+          else
+            TITLE="Update patches after ${UPSTREAM_TAG} conflict resolution"
+            BODY="$(cat <<EOF
+          ## Updated patches after \`${UPSTREAM_TAG}\` conflict resolution
+
+          Regenerated from the resolved [\`${BACKPORT_BRANCH}\`](https://github.com/${REPO}/tree/${BACKPORT_BRANCH})
+          branch. These patch files replace the versions that conflicted when applying to \`${UPSTREAM_TAG}\`.
+
+          Once merged, future runs of **Create Datadog Dev Branch** will use these updated patches for
+          all subsequent upstream versions.
+
+          ### Changed files
+
+          \`\`\`
+          ${PATCH_STAT}
+          \`\`\`
+
+          ### Review checklist
+
+          - [ ] Each changed patch still references its Jira ticket in the Subject line (\`[WFENG-XXXX]\`)
+          - [ ] The resolved diffs reflect the intent of the original patch, adapted to the new upstream
+          - [ ] No unrelated changes were introduced during conflict resolution
+          - [ ] \`patches/series\` order and entries are still correct
+          - [ ] Verify the updated patches apply cleanly to the next upstream version after \`${UPSTREAM_TAG}\`
+
+          > Generated by the [Update Patches on dd-main](${RUN_URL}) workflow from \`${BACKPORT_BRANCH}\`.
+          EOF
+          )"
+          fi
+
+          git commit -m "${TITLE}"
+          git push origin "${UPDATE_BRANCH}" --force
+
+          gh pr create --repo "${REPO}" \
+            --title "${TITLE}" \
+            --base  "dd-main" \
+            --head  "${UPDATE_BRANCH}" \
+            --body  "${BODY}"

@@ -1,0 +1,106 @@
+name: Create Datadog Release Tag
+
+# Creates a versioned tag on a dd-dev-<version> branch.
+#
+# Triggered automatically when a pull request is merged into a dd-dev-v* branch
+# (i.e. the patch backport PR is merged).  Can also be triggered manually via
+# workflow_dispatch to re-tag or create a higher iteration (dd.2, dd.3, ...).
+#
+# Tag naming: v1.X.Y-dd.N where N is one higher than the latest existing dd tag
+# for that upstream version.  Example: if v1.29.0-dd.1 already exists, the next
+# tag will be v1.29.0-dd.2.
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - 'dd-dev-v*'
+
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'dd-dev-v* branch to tag (e.g. dd-dev-v1.29.0)'
+        required: true
+
+permissions:
+  contents: write
+  id-token: write # Required for dd-octo-sts OIDC token exchange.
+
+jobs:
+  create-tag:
+    name: Tag ${{ github.event.pull_request.base.ref || inputs.branch }}
+    runs-on: ubuntu-latest
+    # For pull_request trigger: only run when the PR was actually merged.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+
+    steps:
+      - name: Generate token
+        id: octo-sts
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/temporal-server
+          policy: self.dd-automation
+
+      - name: Determine branch name
+        id: branch
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          WD_BRANCH: ${{ inputs.branch }}
+        run: |
+          if [[ -n "${WD_BRANCH}" ]]; then
+            echo "name=${WD_BRANCH}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "name=${PR_BASE}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.branch.outputs.name }}
+          fetch-depth: 0
+          token: ${{ steps.octo-sts.outputs.token }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  'Temporal CICD'
+          git config user.email 'temporal-cicd[bot]@users.noreply.github.com'
+
+      - name: Determine next tag
+        id: tag
+        env:
+          BRANCH: ${{ steps.branch.outputs.name }}
+        run: |
+          # Derive the upstream version from the branch name.
+          # dd-dev-v1.29.0 → v1.29.0
+          UPSTREAM_VERSION="${BRANCH#dd-dev-}"
+
+          if [[ ! "${UPSTREAM_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "::error::Cannot derive upstream version from branch '${BRANCH}'" >&2
+            exit 1
+          fi
+
+          # Fetch all tags so we can find existing dd tags for this version.
+          git fetch --tags --quiet
+
+          # Find the highest existing dd.N tag for this upstream version.
+          LATEST=$(git tag | grep -E "^${UPSTREAM_VERSION}-dd\.[0-9]+$" | sort -V | tail -1)
+
+          if [[ -z "${LATEST}" ]]; then
+            NEXT_TAG="${UPSTREAM_VERSION}-dd.1"
+          else
+            CURRENT_N="${LATEST##*-dd.}"
+            NEXT_TAG="${UPSTREAM_VERSION}-dd.$((CURRENT_N + 1))"
+          fi
+
+          echo "upstream_version=${UPSTREAM_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "next_tag=${NEXT_TAG}"                 >> "${GITHUB_OUTPUT}"
+          echo "Next tag: ${NEXT_TAG}"
+
+      - name: Create and push tag
+        env:
+          NEXT_TAG: ${{ steps.tag.outputs.next_tag }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+        run: |
+          git tag "${NEXT_TAG}" HEAD
+          git push origin "refs/tags/${NEXT_TAG}:refs/tags/${NEXT_TAG}"
+          echo "Tagged ${BRANCH} HEAD as ${NEXT_TAG}"
