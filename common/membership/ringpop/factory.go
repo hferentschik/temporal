@@ -3,7 +3,6 @@ package ringpop
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -80,15 +79,9 @@ func (p *lazyHostInfoProvider) HostInfo() membership.HostInfo {
 	return membership.NewHostInfoFromAddress(net.JoinHostPort(p.host, strconv.Itoa(port)))
 }
 
-var errMalformedBroadcastAddress = errors.New("ringpop config malformed `broadcastAddress` param")
-
 // newFactory builds a ringpop factory
 func newFactory(params factoryParams) (*factory, error) {
 	cfg := params.Config
-	if cfg.BroadcastAddress != "" && net.ParseIP(cfg.BroadcastAddress) == nil {
-		return nil, fmt.Errorf("%w: %s", errMalformedBroadcastAddress, cfg.BroadcastAddress)
-	}
-
 	if cfg.MaxJoinDuration == 0 {
 		cfg.MaxJoinDuration = defaultMaxJoinDuration
 	}

@@ -488,16 +488,14 @@ func buildBroadcastHostPort(listenerPeerInfo tchannel.LocalPeerInfo, broadcastAd
 		return "", err
 	}
 
-	// Broadcast IP override
+	// Broadcast address override
 	if broadcastAddress != "" {
-		// Parse supplied broadcastAddress override
-		ip := net.ParseIP(broadcastAddress)
-		if ip == nil {
-			return "", errors.New("broadcastAddress set but unknown failure encountered while parsing")
+		// If broadcastAddress is an IP, normalize it (handles IPv6 canonicalization).
+		// If it's a hostname (e.g. a StatefulSet stable pod DNS name), use it directly.
+		if ip := net.ParseIP(broadcastAddress); ip != nil {
+			return net.JoinHostPort(ip.String(), port), nil
 		}
-
-		// If no errors, use the parsed IP with the port from our listener
-		return net.JoinHostPort(ip.String(), port), nil
+		return net.JoinHostPort(broadcastAddress, port), nil
 	}
 
 	listenerIP := net.ParseIP(listenerIPString)

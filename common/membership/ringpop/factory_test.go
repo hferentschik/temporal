@@ -130,10 +130,13 @@ broadcastAddress: "1.2.3.4"
 maxJoinDuration: 30s`
 }
 
-func (s *RingpopSuite) TestInvalidBroadcastAddress() {
+func (s *RingpopSuite) TestBroadcastAddressAcceptsHostname() {
+	// Hostnames are valid broadcast addresses (e.g. StatefulSet stable pod DNS names).
+	// Validation was intentionally relaxed to support this; resolution happens later
+	// in startHeartbeat when the address is stored in Cassandra.
 	cfg := config.Membership{
 		MaxJoinDuration:  time.Minute,
-		BroadcastAddress: "oopsie",
+		BroadcastAddress: "history-0.history-headless.temporal.svc.cluster.local",
 	}
 	logger := log.Logger(log.NewNoopLogger())
 	params := factoryParams{
@@ -141,10 +144,9 @@ func (s *RingpopSuite) TestInvalidBroadcastAddress() {
 		ServiceName: "test",
 		Logger:      logger,
 	}
-	_, err := newFactory(params)
-
-	s.ErrorIs(err, errMalformedBroadcastAddress)
-	s.ErrorContains(err, "oopsie")
+	f, err := newFactory(params)
+	s.Nil(err)
+	s.NotNil(f)
 }
 
 func newTestRingpopFactory(

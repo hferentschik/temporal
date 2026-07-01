@@ -288,6 +288,52 @@ func splitHostPortTyped(hostPort string) (net.IP, uint16, error) {
 	return broadcastAddress, uint16(broadcastPort), nil
 }
 
+// resolveHostToIP resolves a host string to a net.IP for persistence storage.
+// If host is already an IP address it is returned directly. If host is a DNS
+// name (e.g., a StatefulSet stable pod hostname), it is resolved via DNS.
+// Retries are included to handle Kubernetes DNS propagation lag at pod startup.
+func resolveHostToIP(ctx context.Context, host string) (net.IP, error) {
+	if ip := net.ParseIP(host); ip != nil {
+		return ip, nil
+	}
+
+	const (
+		maxAttempts = 3
+		retryDelay  = 500 * time.Millisecond
+		dnsTimeout  = 5 * time.Second
+	)
+
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(retryDelay):
+			}
+		}
+
+		resolveCtx, cancel := context.WithTimeout(ctx, dnsTimeout)
+		addrs, err := net.DefaultResolver.LookupHost(resolveCtx, host)
+		cancel()
+
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if len(addrs) == 0 {
+			lastErr = fmt.Errorf("DNS returned no addresses for hostname %q", host)
+			continue
+		}
+		if ip := net.ParseIP(addrs[0]); ip != nil {
+			return ip, nil
+		}
+		lastErr = fmt.Errorf("DNS returned unparseable address %q for hostname %q", addrs[0], host)
+	}
+
+	return nil, fmt.Errorf("failed to resolve broadcast hostname %q after %d attempts: %w", host, maxAttempts, lastErr)
+}
+
 func (rpo *monitor) startHeartbeat(broadcastHostport string) error {
 	// Start by cleaning up expired records to avoid growth
 	err := rpo.metadataManager.PruneClusterMembership(rpo.lifecycleCtx, &persistence.PruneClusterMembershipRequest{MaxRecordsPruned: 10})
@@ -297,8 +343,19 @@ func (rpo *monitor) startHeartbeat(broadcastHostport string) error {
 
 	sessionStarted := time.Now().UTC()
 
-	// Parse and validate broadcast hostport
-	broadcastAddress, broadcastPort, err := splitHostPortTyped(broadcastHostport)
+	// Parse broadcast hostport and resolve to a net.IP for persistence storage.
+	// The Ringpop ring uses the full hostname:port as its identity; Cassandra
+	// only needs the IP for bootstrap peer discovery.
+	host, portStr, err := net.SplitHostPort(broadcastHostport)
+	if err != nil {
+		return err
+	}
+	broadcastPort64, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return err
+	}
+	broadcastPort := uint16(broadcastPort64)
+	broadcastAddress, err := resolveHostToIP(rpo.lifecycleCtx, host)
 	if err != nil {
 		return err
 	}
