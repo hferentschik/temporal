@@ -4,6 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/blang/semver/v4"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/common/headers"
 	"go.temporal.io/server/common/versioninfo"
 	"google.golang.org/grpc"
@@ -17,6 +20,13 @@ type SDKVersionInterceptor struct {
 }
 
 const defaultMaxSetSize = 100
+
+// namespaceMinSDKVersions enforces a stricter minimum SDK version than the
+// cluster default for namespaces that have opted into requiring a newer SDK
+// release (e.g. to pick up a fix their workflows depend on).
+var namespaceMinSDKVersions = map[string]semver.Range{
+	"v1:calypso-6": semver.MustParseRange(">=1.40.0"),
+}
 
 // NewSDKVersionInterceptor creates a new SDKVersionInterceptor with default max set size
 func NewSDKVersionInterceptor() *SDKVersionInterceptor {
@@ -40,8 +50,43 @@ func (vi *SDKVersionInterceptor) Intercept(
 		if err := vi.versionChecker.ClientSupported(ctx); err != nil {
 			return nil, err
 		}
+		if err := checkNamespaceMinSDKVersion(req, sdkName, sdkVersion); err != nil {
+			return nil, err
+		}
 	}
 	return handler(ctx, req)
+}
+
+// checkNamespaceMinSDKVersion enforces namespaceMinSDKVersions for poll requests
+// from workers. It intentionally only looks at poll RPCs (rather than every
+// namespace-scoped request, e.g. DescribeNamespace) so that a worker with an
+// unsupported SDK version still completes startup and reaches its normal poll
+// loop, where the SDK's own fatal-error handling applies.
+func checkNamespaceMinSDKVersion(req interface{}, sdkName, sdkVersion string) error {
+	if sdkName != headers.ClientNameGoSDK {
+		return nil
+	}
+	var reqNamespace string
+	switch r := req.(type) {
+	case *workflowservice.PollWorkflowTaskQueueRequest:
+		reqNamespace = r.GetNamespace()
+	case *workflowservice.PollActivityTaskQueueRequest:
+		reqNamespace = r.GetNamespace()
+	default:
+		return nil
+	}
+	minVersionRange, ok := namespaceMinSDKVersions[reqNamespace]
+	if !ok {
+		return nil
+	}
+	parsedVersion, err := semver.Parse(sdkVersion)
+	if err != nil {
+		return nil
+	}
+	if !minVersionRange(parsedVersion) {
+		return serviceerror.NewClientVersionNotSupported(sdkVersion, sdkName, ">=1.40.0")
+	}
+	return nil
 }
 
 // RecordSDKInfo records name and version tuple in memory
