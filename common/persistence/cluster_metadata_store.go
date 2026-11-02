@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"go.temporal.io/api/serviceerror"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
@@ -201,6 +202,13 @@ func (m *clusterMetadataManagerImpl) convertInternalGetClusterMetadataResponse(
 }
 
 // immutableFieldsChanged returns true if any of immutable fields changed.
+//
+// [WFENG-4345] IFV migration support: when the incoming metadata (cur) carries a
+// "previous-initial-failover-version" tag with a valid integer value that
+// matches the old InitialFailoverVersion, an IFV change is allowed. This
+// enables migrating IFV on existing clusters without DB schema changes.
+// Without the tag, or if the tag value doesn't match the old IFV, IFV
+// remains immutable (existing behavior).
 func immutableFieldsChanged(old *persistencespb.ClusterMetadata, cur *persistencespb.ClusterMetadata) bool {
 	if (old.ClusterName != "" && old.ClusterName != cur.ClusterName) ||
 		(old.ClusterId != "" && old.ClusterId != cur.ClusterId) ||
@@ -209,9 +217,22 @@ func immutableFieldsChanged(old *persistencespb.ClusterMetadata, cur *persistenc
 		return true
 	}
 	if old.IsGlobalNamespaceEnabled {
-		if (old.FailoverVersionIncrement != 0 && old.FailoverVersionIncrement != cur.FailoverVersionIncrement) ||
-			(old.InitialFailoverVersion != 0 && old.InitialFailoverVersion != cur.InitialFailoverVersion) {
+		if old.FailoverVersionIncrement != 0 && old.FailoverVersionIncrement != cur.FailoverVersionIncrement {
 			return true
+		}
+		if old.InitialFailoverVersion != 0 && old.InitialFailoverVersion != cur.InitialFailoverVersion {
+			// [WFENG-4345] Allow IFV migration only when the previous-initial-failover-version
+			// tag is present, valid, and matches the old IFV. This guards against
+			// misconfiguration that would silently break namespace resolution.
+			tagVal, hasMigrationTag := cur.Tags["previous-initial-failover-version"]
+			if !hasMigrationTag {
+				return true // no tag → reject (existing behavior)
+			}
+			prevIFV, err := strconv.ParseInt(tagVal, 10, 64)
+			if err != nil || prevIFV != old.InitialFailoverVersion {
+				return true // malformed or mismatched → reject (safe)
+			}
+			// tag present, valid, and matches old IFV → allow IFV change
 		}
 	}
 	return false

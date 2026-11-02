@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -804,6 +805,19 @@ func updateCurrentClusterMetadataRecord(
 		currentClusterDBRecord.InitialFailoverVersion = currentCLusterInfo.InitialFailoverVersion
 		currentClusterDBRecord.FailoverVersionIncrement = currentClusterMetadata.FailoverVersionIncrement
 		updateDBRecord = true
+	}
+	// [WFENG-4345] Allow IFV migration when the previous-initial-failover-version tag is
+	// present on the config and its value matches the current DB IFV. This enables
+	// changing IFV on existing clusters via a Helm deploy without DB surgery.
+	if currentClusterDBRecord.InitialFailoverVersion != currentCLusterInfo.InitialFailoverVersion {
+		if tagVal, hasMigrationTag := svc.ClusterMetadata.Tags["previous-initial-failover-version"]; hasMigrationTag {
+			prevIFV, err := strconv.ParseInt(tagVal, 10, 64)
+			if err == nil && prevIFV == currentClusterDBRecord.InitialFailoverVersion {
+				currentClusterDBRecord.InitialFailoverVersion = currentCLusterInfo.InitialFailoverVersion
+				currentClusterDBRecord.Tags = svc.ClusterMetadata.Tags
+				updateDBRecord = true
+			}
+		}
 	}
 	if currentClusterDBRecord.ClusterAddress != currentCLusterInfo.RPCAddress {
 		currentClusterDBRecord.ClusterAddress = currentCLusterInfo.RPCAddress

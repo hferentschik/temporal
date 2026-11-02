@@ -126,6 +126,13 @@ type (
 		// versionToClusterName contains all initial version -> corresponding cluster name
 		versionToClusterName map[int64]string
 
+		// [WFENG-4345] migratedIFV maps old IFV → new IFV for clusters that have
+		// changed their InitialFailoverVersion. Populated from the
+		// "previous-initial-failover-version" tag on each cluster's metadata.
+		// Used as a fallback in ClusterNameForFailoverVersion and
+		// IsVersionFromSameCluster when the primary lookup fails.
+		migratedIFV map[int64]int64
+
 		clusterCallbackLock   sync.RWMutex
 		clusterChangeCallback map[any]CallbackFn
 	}
@@ -301,7 +308,25 @@ func (m *metadataImpl) GetNextFailoverVersion(clusterName string, currentFailove
 }
 
 func (m *metadataImpl) IsVersionFromSameCluster(version1 int64, version2 int64) bool {
-	return (version1-version2)%m.failoverVersionIncrement == 0
+	if (version1-version2)%m.failoverVersionIncrement == 0 {
+		return true
+	}
+	// [WFENG-4345] Check if both versions map to the same migrated cluster.
+	// After an IFV migration, old namespace versions use the old IFV as
+	// the modulo result. The migration map resolves old IFVs to new ones
+	// so that versions from the same cluster (pre- and post-migration) are
+	// correctly identified.
+	m.clusterLock.RLock()
+	defer m.clusterLock.RUnlock()
+	ifv1 := version1 % m.failoverVersionIncrement
+	ifv2 := version2 % m.failoverVersionIncrement
+	if newIFV, ok := m.migratedIFV[ifv1]; ok {
+		ifv1 = newIFV
+	}
+	if newIFV, ok := m.migratedIFV[ifv2]; ok {
+		ifv2 = newIFV
+	}
+	return ifv1 == ifv2
 }
 
 func (m *metadataImpl) GetMasterClusterName() string {
@@ -350,6 +375,13 @@ func (m *metadataImpl) ClusterNameForFailoverVersion(isGlobalNamespace bool, fai
 	m.clusterLock.RLock()
 	defer m.clusterLock.RUnlock()
 	clusterName, ok := m.versionToClusterName[initialFailoverVersion]
+	if !ok {
+		// [WFENG-4345] Fallback to migrated IFV. If this cluster previously had
+		// a different IFV, the migration map resolves the old IFV to the new one.
+		if newIFV, migrated := m.migratedIFV[initialFailoverVersion]; migrated {
+			clusterName, ok = m.versionToClusterName[newIFV]
+		}
+	}
 	if !ok {
 		m.logger.Warn(fmt.Sprintf(
 			"Unknown initial failover version %v with given cluster initial failover version map: %v and failover version increment %v.",
@@ -482,6 +514,20 @@ func (m *metadataImpl) updateClusterInfoLocked(
 
 func (m *metadataImpl) updateFailoverVersionToClusterName() {
 	m.versionToClusterName = updateVersionToClusterName(m.clusterInfo, m.failoverVersionIncrement)
+
+	// [WFENG-4345] Build migratedIFV from previous-initial-failover-version tags.
+	// Each cluster that has migrated its IFV carries a tag mapping its old IFV
+	// to its new IFV. This allows ClusterNameForFailoverVersion to resolve
+	// old namespace failover versions after an IFV migration.
+	m.migratedIFV = make(map[int64]int64)
+	for _, info := range m.clusterInfo {
+		if tagVal, ok := info.Tags["previous-initial-failover-version"]; ok {
+			prevIFV, err := strconv.ParseInt(tagVal, 10, 64)
+			if err == nil && prevIFV > 0 && prevIFV != info.InitialFailoverVersion {
+				m.migratedIFV[prevIFV] = info.InitialFailoverVersion
+			}
+		}
+	}
 }
 
 func updateVersionToClusterName(clusterInfo map[string]ClusterInformation, failoverVersionIncrement int64) map[int64]string {
